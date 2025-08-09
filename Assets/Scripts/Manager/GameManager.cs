@@ -40,6 +40,7 @@ public class GameManager : MonoBehaviour
     [Header("Action")]
     private bool isDigMode = false;
     private bool isCultivate = false;
+    private bool isPlant = false;
     private Vector2Int TargetGrid;
     private Vector2Int robotGrid;
     private int wallLayerMask;
@@ -51,7 +52,9 @@ public class GameManager : MonoBehaviour
     public Tilemap wallTilemap;
     public Tilemap FloorTilemap;
     public Tilemap FarmTilemap;
+    public Tilemap PlantTilemap;
     public Tile softDirt;
+    public Tile plant;
 
     private void Awake()
     {
@@ -86,12 +89,24 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    private bool InBounds(Vector2Int g)  // 왜? 클릭/목표가 Grid 밖이면 IndexOutOfRange 뜸
+    {
+        return g.x >= bottomLeft.x && g.x <= topRight.x &&
+               g.y >= bottomLeft.y && g.y <= topRight.y;
+    }
+
     private void Update()
     {
         if (Input.GetMouseButtonDown(1))
         {
             Vector2 clickWorld = Camera.main.ScreenToWorldPoint(Input.mousePosition);
             Vector2Int clickGrid = Vector2Int.RoundToInt(clickWorld);
+
+            if (!InBounds(clickGrid))
+            {
+                Debug.Log("그리드 범위를 벗어났습니다."); 
+                return;
+            }
 
             Vector2 robotWorld = robotTransform.position;
             robotGrid = new Vector2Int(
@@ -106,6 +121,7 @@ public class GameManager : MonoBehaviour
                 {
                     isCultivate = false;
                     isDigMode = true;
+                    isPlant = false;
                     TargetGrid = clickGrid;
 
                     targetPos = GetNearestAdjacent(clickGrid);
@@ -120,6 +136,16 @@ public class GameManager : MonoBehaviour
             { // 땅 경작
                 isDigMode = false;
                 isCultivate = true;
+                isPlant = false;
+                TargetGrid = clickGrid;
+
+                targetPos = GetNearestAdjacent(clickGrid);
+            }
+            else if(Input.GetKey(KeyCode.T) && IsCultivateAt(clickGrid))
+            {
+                isDigMode = false;
+                isCultivate = false;
+                isPlant = true;
                 TargetGrid = clickGrid;
 
                 targetPos = GetNearestAdjacent(clickGrid);
@@ -128,6 +154,7 @@ public class GameManager : MonoBehaviour
             { // 이동 모드
                 isDigMode = false;
                 isCultivate = false;
+                isPlant = false;
                 targetPos = clickGrid;
             }
 
@@ -146,6 +173,13 @@ public class GameManager : MonoBehaviour
 
         return cols.Length > 0;
     }
+
+    private bool IsCultivateAt(Vector2Int grid)
+    {
+        Vector3Int cell = new Vector3Int(grid.x, grid.y, 0);
+        return FarmTilemap != null && FarmTilemap.HasTile(cell); 
+    }
+
 
     private Vector2Int GetNearestAdjacent(Vector2Int wallGrid)
     {
@@ -181,16 +215,30 @@ public class GameManager : MonoBehaviour
 
     public void PathFinding()
     {
-        
+        for (int i = 0; i < sizeX; i++)
+        {
+            for (int j = 0; j < sizeY; j++)
+            {
+                var n = NodeArray[i, j];
+                n.G = int.MaxValue;   // 큰 값으로 초기화
+                n.H = 0;
+                n.ParentNode = null;
+            }
+        }
+
+        if (!InBounds(startPos)) { Debug.LogWarning("Start out of bounds"); return; }
+        if (!InBounds(targetPos)) { Debug.LogWarning("Target out of bounds"); return; }
 
         // 시작과 끝 노드, 열린리스트와 닫힌리스트, 마지막리스트 초기화
         StartNode = NodeArray[startPos.x - bottomLeft.x, startPos.y - bottomLeft.y];
         TargetNode = NodeArray[targetPos.x - bottomLeft.x, targetPos.y - bottomLeft.y];
 
+        StartNode.G = 0;
+        StartNode.H = (Mathf.Abs(StartNode.x - TargetNode.x) + Mathf.Abs(StartNode.y - TargetNode.y)) * 10;
+
         OpenList = new List<Node>() { StartNode };
         ClosedList = new List<Node>();
         FinalNodeList = new List<Node>();
-
 
         while (OpenList.Count > 0)
         {
@@ -312,6 +360,8 @@ public class GameManager : MonoBehaviour
             StartCoroutine(DigWall());
         else if (isCultivate)
             StartCoroutine(Cultivate());
+        else if (isPlant)
+            StartCoroutine(Planting());
     }
 
     private IEnumerator DigWall()
@@ -345,6 +395,16 @@ public class GameManager : MonoBehaviour
 
         FarmTilemap.SetTile(cellPos, softDirt);
 
+    }
+
+    private IEnumerator Planting()
+    {
+        yield return new WaitForSeconds(1f);
+
+        Vector3 worldPos = new Vector3(TargetGrid.x, TargetGrid.y, 0f);
+        Vector3Int cellPos = PlantTilemap.WorldToCell(worldPos);
+
+        PlantTilemap.SetTile(cellPos, plant);
     }
 
 }
