@@ -847,8 +847,6 @@ MonoBehaviour:
   robotDetect: {fileID: 1353730093}
   bottomLeft: {x: -50, y: -40}
   topRight: {x: 50, y: 40}
-  startPos: {x: -7, y: -4}
-  targetPos: {x: -1, y: 2}
   FinalNodeList: []
   allowDiagonal: 0
   dontCrossCorner: 0
@@ -856,6 +854,8 @@ MonoBehaviour:
   robotTransform: {fileID: 1353730091}
   moveSpeed: 2
   FarmFloorSpeed: 0.5
+  plantManager: {fileID: 1994806663}
+  plantData: {fileID: 1994806662}
   wallTilemap: {fileID: 1370676674}
   FloorTilemap: {fileID: 2142840379473574461}
   FarmTilemap: {fileID: 1155322108}
@@ -891,6 +891,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5b6c93b7d745cca47a24c93c249aec07, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  secondsPerGameMinute: 0.5
+  wrapAtMidnight: 1
 --- !u!4 &1089843706
 Transform:
   m_ObjectHideFlags: 0
@@ -1434,6 +1436,72 @@ RectTransform:
   m_AnchoredPosition: {x: 1090.05, y: 587.6}
   m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!1 &1994806661
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1994806664}
+  - component: {fileID: 1994806663}
+  - component: {fileID: 1994806662}
+  m_Layer: 0
+  m_Name: PlantManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1994806662
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1994806661}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a43494a800c683249a3845950cbdd24f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  plantID: Corn
+  stages:
+  - {fileID: 11400000, guid: 9fdf544c8201b454580929bc9c06a8ea, type: 2}
+  - {fileID: 11400000, guid: 8ea695a7583299f459686b200d5a0edf, type: 2}
+  minutesPerStage: 02000000
+  dropCrop: {fileID: 4964198388935395361, guid: a7970c0217b0c5647bcb495b45ca4935, type: 3}
+  dropCount: 1
+--- !u!114 &1994806663
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1994806661}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5bd5a21e684e10c4c98210913cacbf8a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  farmTilemap: {fileID: 1155322108}
+  plantTilemap: {fileID: 964442829}
+--- !u!4 &1994806664
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1994806661}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -3.042501, y: -0.8020981, z: -9.933079}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &2142840379473574460
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -2120,6 +2188,7 @@ SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
   - {fileID: 1002336295}
+  - {fileID: 1994806664}
   - {fileID: 946613655}
   - {fileID: 519420032}
   - {fileID: 923922530}

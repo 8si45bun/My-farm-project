@@ -1,3 +1,5 @@
+using Mono.Cecil;
+using NUnit.Framework.Constraints;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -23,19 +25,25 @@ public class Node
 }
 
 
-public class GameManager : MonoBehaviour
+public class RobotManager : MonoBehaviour
 {
     [Header("References")]
     public RobotDetect robotDetect;
 
     [Header("Moving")]
-    public Vector2Int bottomLeft, topRight, startPos, targetPos;
+    public Vector2Int bottomLeft, topRight;
+    private Vector2Int startPos, targetPos;
     public List<Node> FinalNodeList;
     public bool allowDiagonal, dontCrossCorner;
     public Rigidbody2D robotRigidbody;
     public Transform robotTransform;
     public float moveSpeed = 2f;
     public float FarmFloorSpeed = 0.5f;
+
+    [Header("Harvest")]
+    public PlantManager plantManager;
+    public PlantData plantData;
+    private bool isHarvest = false;
 
     [Header("Action")]
     private bool isDigMode = false;
@@ -122,6 +130,7 @@ public class GameManager : MonoBehaviour
                     isCultivate = false;
                     isDigMode = true;
                     isPlant = false;
+                    isHarvest = false;
                     TargetGrid = clickGrid;
 
                     targetPos = GetNearestAdjacent(clickGrid);
@@ -136,6 +145,7 @@ public class GameManager : MonoBehaviour
             { // 땅 경작
                 isDigMode = false;
                 isCultivate = true;
+                isHarvest = false;
                 isPlant = false;
                 TargetGrid = clickGrid;
 
@@ -143,16 +153,35 @@ public class GameManager : MonoBehaviour
             }
             else if(Input.GetKey(KeyCode.T) && IsCultivateAt(clickGrid))
             {
-                isDigMode = false;
-                isCultivate = false;
-                isPlant = true;
-                TargetGrid = clickGrid;
+                var cell = new Vector3Int(clickGrid.x, clickGrid.y, 0);
 
-                targetPos = GetNearestAdjacent(clickGrid);
+                if (plantManager && plantManager.HasPlant(cell))
+                {
+                    if (plantManager.IsMature(cell))
+                    {
+                        isDigMode = isCultivate = isPlant = false;
+                        isHarvest = true;
+                        TargetGrid = clickGrid;
+                        targetPos = GetNearestAdjacent(clickGrid);
+                    }
+                    else
+                    {
+                        return;
+                    }
+                }
+                else
+                {
+                    isDigMode = isCultivate = isHarvest = false;
+                    isPlant = true;
+                    TargetGrid = clickGrid;
+                    targetPos = GetNearestAdjacent(clickGrid);
+                }
+
             }
             else
             { // 이동 모드
                 isDigMode = false;
+                isHarvest = false;
                 isCultivate = false;
                 isPlant = false;
                 targetPos = clickGrid;
@@ -356,14 +385,12 @@ public class GameManager : MonoBehaviour
                 yield return null;
             }
         }
-        if (isDigMode)
-            StartCoroutine(DigWall());
-        else if (isCultivate)
-            StartCoroutine(Cultivate());
-        else if (isPlant)
-            StartCoroutine(Planting());
+        if (isDigMode) yield return StartCoroutine(DigWall_GameMinutes(4));
+        else if (isCultivate) yield return StartCoroutine(Cultivate_GameMinutes(2));
+        else if (isPlant) yield return StartCoroutine(Planting_GameMinutes(1));
+        else if (isHarvest) yield return StartCoroutine(HarvestAtTarget(1));
     }
-
+    /*
     private IEnumerator DigWall()
     {
         // (선택) 파괴 애니메이션 / 이펙트 재생 가능
@@ -396,15 +423,57 @@ public class GameManager : MonoBehaviour
         FarmTilemap.SetTile(cellPos, softDirt);
 
     }
+    */
 
-    private IEnumerator Planting()
+    private IEnumerator DigWall_GameMinutes(int minutes)
     {
-        yield return new WaitForSeconds(1f);
+        yield return TimeManager.WaitGameMinutes(minutes);
 
-        Vector3 worldPos = new Vector3(TargetGrid.x, TargetGrid.y, 0f);
-        Vector3Int cellPos = PlantTilemap.WorldToCell(worldPos);
+        Vector3Int cellPos = wallTilemap.WorldToCell(new Vector3(TargetGrid.x, TargetGrid.y, 0f));
+        wallTilemap.SetTile(cellPos, null);
 
-        PlantTilemap.SetTile(cellPos, plant);
+        // 길 갱신
+        NodeArray[TargetGrid.x - bottomLeft.x, TargetGrid.y - bottomLeft.y].isWall = false;
+
+        isDigMode = false;
     }
+
+    private IEnumerator Cultivate_GameMinutes(int minutes)
+    {
+        yield return TimeManager.WaitGameMinutes(minutes);
+
+        Vector3Int cellPos = FarmTilemap.WorldToCell(new Vector3(TargetGrid.x, TargetGrid.y, 0f));
+        FarmTilemap.SetTile(cellPos, softDirt);
+
+        isCultivate = false;
+    }
+
+    private IEnumerator Planting_GameMinutes(int minutes)
+    {
+        // 심는 데 걸리는 게임 시간 (원하면 0으로)
+        yield return TimeManager.WaitGameMinutes(minutes);
+
+        var cell = new Vector3Int(TargetGrid.x, TargetGrid.y, 0);
+        if (plantManager && plantManager.PlantAt(cell, plantData))
+            Debug.Log($"{TargetGrid} 심기 완료");
+        else
+            Debug.Log("심기 실패(경작 아님/이미 심어짐/데이터 없음)");
+
+        isPlant = false;
+    }
+
+    private IEnumerator HarvestAtTarget(int minutes)
+    {
+        yield return TimeManager.WaitGameMinutes(minutes);
+
+        var cell = new Vector3Int(TargetGrid.x, TargetGrid.y, 0);
+        if (plantManager && plantManager.HarvestAt(cell, plantData))
+            Debug.Log($"수확 완료: {plantData.plantID}");
+        else
+            Debug.Log("수확 실패(미성숙/식물 없음)");
+
+        isHarvest = false;
+    }
+
 
 }
