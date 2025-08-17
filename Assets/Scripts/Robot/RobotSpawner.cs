@@ -29,7 +29,6 @@ public class RobotSpawner : MonoBehaviour
         {
             int index = Random.Range(0, possibleTiles.Count);
             GameObject clone = Instantiate(robot, possibleTiles[index], Quaternion.identity, transform);
-            clone.GetComponent<RobotFSM>().Setup(target);
         }
     }
 

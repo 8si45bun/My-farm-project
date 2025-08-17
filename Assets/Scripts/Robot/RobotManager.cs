@@ -1,19 +1,17 @@
-using Mono.Cecil;
-using NUnit.Framework.Constraints;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Tilemaps;
 
-
 [System.Serializable]
 public class Node
 {
-    public Node(bool _isWall, int _x, int _y) 
-    { 
+    public Node(bool _isWall, int _x, int _y)
+    {
         isWall = _isWall;
         x = _x;
-        y = _y; 
+        y = _y;
     }
 
     public bool isWall;
@@ -24,28 +22,36 @@ public class Node
     public int F { get { return G + H; } }
 }
 
-
 public class RobotManager : MonoBehaviour
 {
     [Header("References")]
     public RobotDetect robotDetect;
 
+    [Header("Control")]
+    [Tooltip("true면 기존처럼 마우스/키 입력으로 직접 조작, false면 외부(스케줄러)만 제어")]
+    public bool manualControl = true;
+
+    /// <summary> 경로 이동/행동 수행 중 여부(외부 디스패처가 참조) </summary>
+    public bool IsBusy { get; private set; }
+    /// <summary> 이동→행동 한 사이클 종료 시 발생(외부 디스패처가 후속 처리) </summary>
+    public event Action OnTaskCycleCompleted;
+
     [Header("Moving")]
     public Vector2Int bottomLeft, topRight;
     private Vector2Int startPos, targetPos;
-    public List<Node> FinalNodeList;
+    public List<Node> FinalNodeList = new List<Node>();
     public bool allowDiagonal, dontCrossCorner;
     public Rigidbody2D robotRigidbody;
     public Transform robotTransform;
     public float moveSpeed = 2f;
     public float FarmFloorSpeed = 0.5f;
 
-    [Header("Harvest")]
+    [Header("Harvest / Plant")]
     public PlantManager plantManager;
     public PlantData plantData;
     private bool isHarvest = false;
 
-    [Header("Action")]
+    [Header("Action Flags")]
     private bool isDigMode = false;
     private bool isCultivate = false;
     private bool isPlant = false;
@@ -55,27 +61,26 @@ public class RobotManager : MonoBehaviour
     private int softLayerMask;
     private bool onSoft;
 
-
     [Header("TileMaps")]
     public Tilemap wallTilemap;
     public Tilemap FloorTilemap;
     public Tilemap FarmTilemap;
     public Tilemap PlantTilemap;
     public Tile softDirt;
-    public Tile plant;
+    public Tile plant; // (현재 미사용)
+
+    // --- Grid / A* ---
+    int sizeX, sizeY;
+    Node[,] NodeArray;
+    Node StartNode, TargetNode, CurNode;
+    List<Node> OpenList, ClosedList;
 
     private void Awake()
     {
         wallLayerMask = LayerMask.NameToLayer("Wall");
         softLayerMask = LayerMask.NameToLayer("SoftGround");
-
         InitGrid();
     }
-
-    int sizeX, sizeY;
-    Node[,] NodeArray;
-    Node StartNode, TargetNode, CurNode;
-    List<Node> OpenList, ClosedList;
 
     private void InitGrid()
     {
@@ -90,14 +95,17 @@ public class RobotManager : MonoBehaviour
             {
                 bool isWall = false;
                 foreach (Collider2D col in Physics2D.OverlapCircleAll(new Vector2(i + bottomLeft.x, j + bottomLeft.y), 0.4f))
-                    if (col.gameObject.layer == LayerMask.NameToLayer("Wall")) isWall = true;
+                {
+                    if (col.gameObject.layer == LayerMask.NameToLayer("Wall"))
+                        isWall = true;
+                }
 
                 NodeArray[i, j] = new Node(isWall, i + bottomLeft.x, j + bottomLeft.y);
             }
         }
     }
 
-    private bool InBounds(Vector2Int g)  // 왜? 클릭/목표가 Grid 밖이면 IndexOutOfRange 뜸
+    private bool InBounds(Vector2Int g)  // 클릭/목표가 Grid 밖이면 IndexOutOfRange 방지
     {
         return g.x >= bottomLeft.x && g.x <= topRight.x &&
                g.y >= bottomLeft.y && g.y <= topRight.y;
@@ -105,6 +113,9 @@ public class RobotManager : MonoBehaviour
 
     private void Update()
     {
+        // 외부 제어 모드면 입력 무시
+        if (!manualControl) return;
+
         if (Input.GetMouseButtonDown(1))
         {
             Vector2 clickWorld = Camera.main.ScreenToWorldPoint(Input.mousePosition);
@@ -112,7 +123,7 @@ public class RobotManager : MonoBehaviour
 
             if (!InBounds(clickGrid))
             {
-                Debug.Log("그리드 범위를 벗어났습니다."); 
+                Debug.Log("그리드 범위를 벗어났습니다.");
                 return;
             }
 
@@ -120,10 +131,10 @@ public class RobotManager : MonoBehaviour
             robotGrid = new Vector2Int(
                 Mathf.RoundToInt(robotWorld.x),
                 Mathf.RoundToInt(robotWorld.y)
-                );
+            );
             startPos = robotGrid;
 
-            if (Input.GetKey(KeyCode.Q)) 
+            if (Input.GetKey(KeyCode.Q))
             { // 채굴 모드
                 if (IsWallAt(clickGrid))
                 {
@@ -151,7 +162,7 @@ public class RobotManager : MonoBehaviour
 
                 targetPos = GetNearestAdjacent(clickGrid);
             }
-            else if(Input.GetKey(KeyCode.T) && IsCultivateAt(clickGrid))
+            else if (Input.GetKey(KeyCode.T) && IsCultivateAt(clickGrid))
             {
                 var cell = new Vector3Int(clickGrid.x, clickGrid.y, 0);
 
@@ -176,7 +187,6 @@ public class RobotManager : MonoBehaviour
                     TargetGrid = clickGrid;
                     targetPos = GetNearestAdjacent(clickGrid);
                 }
-
             }
             else
             { // 이동 모드
@@ -188,27 +198,83 @@ public class RobotManager : MonoBehaviour
             }
 
             StopAllCoroutines(); // 이전 행동 멈추기
+            IsBusy = true;
             PathFinding();
-
         }
     }
 
+    // === 외부 제어용 래퍼 ===
+    public void MoveTo(Vector3Int cell)
+    {
+        PreparePathFlags(false, false, false, false, cell);
+        PathFinding();
+    }
+    public void MoveToAdjacent(Vector3Int targetCell)
+    {
+        Vector2Int adj = GetNearestAdjacent((Vector2Int)targetCell);
+        PreparePathFlags(false, false, false, false, (Vector3Int)adj);
+        PathFinding();
+    }
+    public void StartDig(Vector3Int targetCell)
+    {
+        PreparePathFlags(true, false, false, false, targetCell);
+        PathFinding();
+    }
+    public void StartCultivate(Vector3Int targetCell)
+    {
+        PreparePathFlags(false, true, false, false, targetCell);
+        PathFinding();
+    }
+    public void StartPlant(Vector3Int targetCell, PlantData data)
+    {
+        this.plantData = data;
+        PreparePathFlags(false, false, true, false, targetCell);
+        PathFinding();
+    }
+    public void StartHarvest(Vector3Int targetCell)
+    {
+        PreparePathFlags(false, false, false, true, targetCell);
+        PathFinding();
+    }
+
+    private void PreparePathFlags(bool dig, bool cult, bool plantFlag, bool harvest, Vector3Int targetCell)
+    {
+        isDigMode = dig; isCultivate = cult; isPlant = plantFlag; isHarvest = harvest;
+
+        Vector2 robotWorld = robotTransform.position;
+        robotGrid = new Vector2Int(
+            Mathf.RoundToInt(robotWorld.x),
+            Mathf.RoundToInt(robotWorld.y)
+        );
+        startPos = robotGrid;
+
+        TargetGrid = (Vector2Int)targetCell;
+
+        // 인접 동작이면 도착 목표는 인접칸, 이동만이면 목표칸
+        if (dig || cult || plantFlag || harvest)
+            targetPos = GetNearestAdjacent(TargetGrid);
+        else
+            targetPos = TargetGrid;
+
+        StopAllCoroutines();
+        IsBusy = true;
+    }
+
+    // === 유틸 ===
     private bool IsWallAt(Vector2Int grid)
     {
         Collider2D[] cols = Physics2D.OverlapCircleAll(
             new Vector2(grid.x, grid.y), 0.4f,
             1 << wallLayerMask
-            );
-
+        );
         return cols.Length > 0;
     }
 
     private bool IsCultivateAt(Vector2Int grid)
     {
         Vector3Int cell = new Vector3Int(grid.x, grid.y, 0);
-        return FarmTilemap != null && FarmTilemap.HasTile(cell); 
+        return FarmTilemap != null && FarmTilemap.HasTile(cell);
     }
-
 
     private Vector2Int GetNearestAdjacent(Vector2Int wallGrid)
     {
@@ -226,10 +292,10 @@ public class RobotManager : MonoBehaviour
             Vector2Int adj = wallGrid + d;
 
             if (adj.x < bottomLeft.x || adj.x > topRight.x ||
-            adj.y < bottomLeft.y || adj.y > topRight.y)
+                adj.y < bottomLeft.y || adj.y > topRight.y)
                 continue;
 
-            Node node = NodeArray[adj.x -  bottomLeft.x, adj.y - bottomLeft.y];
+            Node node = NodeArray[adj.x - bottomLeft.x, adj.y - bottomLeft.y];
             if (node.isWall) continue;
 
             float dist = Vector2Int.Distance(robotGrid, adj);
@@ -242,6 +308,7 @@ public class RobotManager : MonoBehaviour
         return best;
     }
 
+    // === A* Pathfinding ===
     public void PathFinding()
     {
         for (int i = 0; i < sizeX; i++)
@@ -255,10 +322,10 @@ public class RobotManager : MonoBehaviour
             }
         }
 
-        if (!InBounds(startPos)) { Debug.LogWarning("Start out of bounds"); return; }
-        if (!InBounds(targetPos)) { Debug.LogWarning("Target out of bounds"); return; }
+        if (!InBounds(startPos)) { Debug.LogWarning("Start out of bounds"); IsBusy = false; return; }
+        if (!InBounds(targetPos)) { Debug.LogWarning("Target out of bounds"); IsBusy = false; return; }
 
-        // 시작과 끝 노드, 열린리스트와 닫힌리스트, 마지막리스트 초기화
+        // 시작/끝 노드, 리스트 초기화
         StartNode = NodeArray[startPos.x - bottomLeft.x, startPos.y - bottomLeft.y];
         TargetNode = NodeArray[targetPos.x - bottomLeft.x, targetPos.y - bottomLeft.y];
 
@@ -271,7 +338,7 @@ public class RobotManager : MonoBehaviour
 
         while (OpenList.Count > 0)
         {
-            // 열린리스트 중 가장 F가 작고 F가 같다면 H가 작은 걸 현재노드로 하고 열린리스트에서 닫힌리스트로 옮기기
+            // 열린리스트 중 F가 가장 작고, 같으면 H가 작은 노드 선택
             CurNode = OpenList[0];
             for (int i = 1; i < OpenList.Count; i++)
                 if (OpenList[i].F <= CurNode.F && OpenList[i].H < CurNode.H) CurNode = OpenList[i];
@@ -279,8 +346,7 @@ public class RobotManager : MonoBehaviour
             OpenList.Remove(CurNode);
             ClosedList.Add(CurNode);
 
-
-            // 마지막
+            // 목적지 도달
             if (CurNode == TargetNode)
             {
                 Node TargetCurNode = TargetNode;
@@ -292,18 +358,12 @@ public class RobotManager : MonoBehaviour
                 FinalNodeList.Add(StartNode);
                 FinalNodeList.Reverse();
 
-                //for (int i = 0; i < FinalNodeList.Count; i++)
-                //{
-                //    print(i + "번째는 " + FinalNodeList[i].x + ", " + FinalNodeList[i].y);
-                //}
-
+                // 경로 따라 이동 시작
                 StartCoroutine(MoveAlongPath());
-
                 return;
             }
 
-
-            // ↗↖↙↘
+            // 대각 이동
             if (allowDiagonal)
             {
                 OpenListAdd(CurNode.x + 1, CurNode.y + 1);
@@ -312,32 +372,42 @@ public class RobotManager : MonoBehaviour
                 OpenListAdd(CurNode.x + 1, CurNode.y - 1);
             }
 
-            // ↑ → ↓ ←
+            // 상하좌우
             OpenListAdd(CurNode.x, CurNode.y + 1);
             OpenListAdd(CurNode.x + 1, CurNode.y);
             OpenListAdd(CurNode.x, CurNode.y - 1);
             OpenListAdd(CurNode.x - 1, CurNode.y);
         }
+
+        // 경로 실패
+        Debug.LogWarning("Path not found");
+        IsBusy = false;
+        OnTaskCycleCompleted?.Invoke();
     }
 
     void OpenListAdd(int checkX, int checkY)
     {
-        // 상하좌우 범위를 벗어나지 않고, 벽이 아니면서, 닫힌리스트에 없다면
-        if (checkX >= bottomLeft.x && checkX < topRight.x + 1 && checkY >= bottomLeft.y && checkY < topRight.y + 1 && !NodeArray[checkX - bottomLeft.x, checkY - bottomLeft.y].isWall && !ClosedList.Contains(NodeArray[checkX - bottomLeft.x, checkY - bottomLeft.y]))
+        // 범위 내, 벽 아님, 닫힌리스트에 없음
+        if (checkX >= bottomLeft.x && checkX < topRight.x + 1 &&
+            checkY >= bottomLeft.y && checkY < topRight.y + 1 &&
+            !NodeArray[checkX - bottomLeft.x, checkY - bottomLeft.y].isWall &&
+            !ClosedList.Contains(NodeArray[checkX - bottomLeft.x, checkY - bottomLeft.y]))
         {
-            // 대각선 허용시, 벽 사이로 통과 안됨
-            if (allowDiagonal) if (NodeArray[CurNode.x - bottomLeft.x, checkY - bottomLeft.y].isWall && NodeArray[checkX - bottomLeft.x, CurNode.y - bottomLeft.y].isWall) return;
+            // 대각선 허용 시, 벽 사이로 통과 금지
+            if (allowDiagonal)
+                if (NodeArray[CurNode.x - bottomLeft.x, checkY - bottomLeft.y].isWall &&
+                    NodeArray[checkX - bottomLeft.x, CurNode.y - bottomLeft.y].isWall)
+                    return;
 
-            // 코너를 가로질러 가지 않을시, 이동 중에 수직수평 장애물이 있으면 안됨
-            if (dontCrossCorner) if (NodeArray[CurNode.x - bottomLeft.x, checkY - bottomLeft.y].isWall || NodeArray[checkX - bottomLeft.x, CurNode.y - bottomLeft.y].isWall) return;
+            // 코너 가로질러 금지 옵션
+            if (dontCrossCorner)
+                if (NodeArray[CurNode.x - bottomLeft.x, checkY - bottomLeft.y].isWall ||
+                    NodeArray[checkX - bottomLeft.x, CurNode.y - bottomLeft.y].isWall)
+                    return;
 
-
-            // 이웃노드에 넣고, 직선은 10, 대각선은 14비용
             Node NeighborNode = NodeArray[checkX - bottomLeft.x, checkY - bottomLeft.y];
             int MoveCost = CurNode.G + (CurNode.x - checkX == 0 || CurNode.y - checkY == 0 ? 10 : 14);
 
-
-            // 이동비용이 이웃노드G보다 작거나 또는 열린리스트에 이웃노드가 없다면 G, H, ParentNode를 설정 후 열린리스트에 추가
             if (MoveCost < NeighborNode.G || !OpenList.Contains(NeighborNode))
             {
                 NeighborNode.G = MoveCost;
@@ -351,8 +421,12 @@ public class RobotManager : MonoBehaviour
 
     void OnDrawGizmos()
     {
-        if (FinalNodeList.Count != 0) for (int i = 0; i < FinalNodeList.Count - 1; i++)
-                Gizmos.DrawLine(new Vector2(FinalNodeList[i].x, FinalNodeList[i].y), new Vector2(FinalNodeList[i + 1].x, FinalNodeList[i + 1].y));
+        if (FinalNodeList != null && FinalNodeList.Count != 0)
+        {
+            for (int i = 0; i < FinalNodeList.Count - 1; i++)
+                Gizmos.DrawLine(new Vector2(FinalNodeList[i].x, FinalNodeList[i].y),
+                                new Vector2(FinalNodeList[i + 1].x, FinalNodeList[i + 1].y));
+        }
     }
 
     private IEnumerator MoveAlongPath()
@@ -366,64 +440,37 @@ public class RobotManager : MonoBehaviour
                 FinalNodeList[i + 1].y,
                 0f
             );
-            
+
             // 목표 지점에 거의 도착할 때까지 반복
             while (Vector3.Distance(robotTransform.position, nextWorldPos) > 0.01f)
             {
-                onSoft = robotDetect.inSoftGround;
+                onSoft = robotDetect != null && robotDetect.inSoftGround;
                 if (onSoft)
                     robotSpeed = moveSpeed * FarmFloorSpeed;
                 else
                     robotSpeed = moveSpeed;
 
-                robotTransform.position = (Vector3.MoveTowards(
+                robotTransform.position = Vector3.MoveTowards(
                     robotTransform.position,
                     nextWorldPos,
                     robotSpeed * Time.deltaTime
-                    )
                 );
                 yield return null;
             }
         }
+
+        // 도착 후 행동 실행
         if (isDigMode) yield return StartCoroutine(DigWall_GameMinutes(4));
         else if (isCultivate) yield return StartCoroutine(Cultivate_GameMinutes(2));
         else if (isPlant) yield return StartCoroutine(Planting_GameMinutes(1));
         else if (isHarvest) yield return StartCoroutine(HarvestAtTarget(1));
-    }
-    /*
-    private IEnumerator DigWall()
-    {
-        // (선택) 파괴 애니메이션 / 이펙트 재생 가능
-        Debug.Log($"{TargetGrid} 벽을 2초간 파괴합니다.");
 
-        yield return new WaitForSeconds(2f);
-
-        Vector3 worldPos = new Vector3(TargetGrid.x, TargetGrid.y, 0f);
-        Vector3Int cellPos = wallTilemap.WorldToCell(worldPos);
-
-        wallTilemap.SetTile(cellPos, null);
-
-        NodeArray[
-            TargetGrid.x - bottomLeft.x,
-            TargetGrid.y - bottomLeft.y
-            ].isWall = false;
-
-        isDigMode = false;
+        // 사이클 종료 콜백
+        IsBusy = false;
+        OnTaskCycleCompleted?.Invoke();
     }
 
-    private IEnumerator Cultivate()
-    {
-        Debug.Log($"{TargetGrid} 땅을 경작 합니다.");
-
-        yield return new WaitForSeconds(1f);
-
-        Vector3 worldPos = new Vector3(TargetGrid.x, TargetGrid.y, 0f);
-        Vector3Int cellPos = FarmTilemap.WorldToCell(worldPos);
-
-        FarmTilemap.SetTile(cellPos, softDirt);
-
-    }
-    */
+    // === 작업 코루틴 ===
 
     private IEnumerator DigWall_GameMinutes(int minutes)
     {
@@ -450,7 +497,7 @@ public class RobotManager : MonoBehaviour
 
     private IEnumerator Planting_GameMinutes(int minutes)
     {
-        // 심는 데 걸리는 게임 시간 (원하면 0으로)
+        // 심는 데 걸리는 게임 시간
         yield return TimeManager.WaitGameMinutes(minutes);
 
         var cell = new Vector3Int(TargetGrid.x, TargetGrid.y, 0);
@@ -474,6 +521,4 @@ public class RobotManager : MonoBehaviour
 
         isHarvest = false;
     }
-
-
 }

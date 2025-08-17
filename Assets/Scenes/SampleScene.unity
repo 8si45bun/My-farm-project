@@ -841,27 +841,20 @@ MonoBehaviour:
   m_GameObject: {fileID: 1002336292}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 88bba61bc79cc0749b68c49313a2cbf0, type: 3}
+  m_Script: {fileID: 11500000, guid: c7e1f4c7f6e98394b9857b14d3f58664, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  robotDetect: {fileID: 1353730093}
-  bottomLeft: {x: -50, y: -40}
-  topRight: {x: 50, y: 40}
-  FinalNodeList: []
-  allowDiagonal: 0
-  dontCrossCorner: 0
-  robotRigidbody: {fileID: 1353730094}
-  robotTransform: {fileID: 1353730091}
-  moveSpeed: 2
-  FarmFloorSpeed: 0.5
-  plantManager: {fileID: 1994806663}
-  plantData: {fileID: 1994806662}
   wallTilemap: {fileID: 1370676674}
-  FloorTilemap: {fileID: 2142840379473574461}
-  FarmTilemap: {fileID: 1155322108}
-  PlantTilemap: {fileID: 964442829}
-  softDirt: {fileID: 11400000, guid: 12225b82ebb7e7a45b91171096474b96, type: 2}
-  plant: {fileID: 11400000, guid: 84739620e1bb3f54daf6a176ad5337db, type: 2}
+  farmTilemap: {fileID: 1155322108}
+  plantManager: {fileID: 1994806663}
+  defaultPlantData: {fileID: 1994806662}
+  dragKey: 323
+  commandDig: 49
+  commandCult: 50
+  commandPlant: 51
+  commandHarvest: 52
+  commandMove: 53
+  current: 0
 --- !u!1 &1089843704
 GameObject:
   m_ObjectHideFlags: 0
@@ -1242,8 +1235,10 @@ GameObject:
   - component: {fileID: 1353730092}
   - component: {fileID: 1353730093}
   - component: {fileID: 1353730094}
+  - component: {fileID: 1353730096}
+  - component: {fileID: 1353730095}
   m_Layer: 0
-  m_Name: farming-chicken_0
+  m_Name: Robot
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1395,6 +1390,50 @@ Rigidbody2D:
   m_SleepingMode: 1
   m_CollisionDetection: 0
   m_Constraints: 0
+--- !u!114 &1353730095
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1353730089}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 682548dfaa8037b42bf98685cf12f5f6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  floorId: 0
+--- !u!114 &1353730096
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1353730089}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 88bba61bc79cc0749b68c49313a2cbf0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  robotDetect: {fileID: 1353730093}
+  manualControl: 1
+  bottomLeft: {x: -50, y: -40}
+  topRight: {x: 50, y: 40}
+  FinalNodeList: []
+  allowDiagonal: 0
+  dontCrossCorner: 0
+  robotRigidbody: {fileID: 1353730094}
+  robotTransform: {fileID: 1353730091}
+  moveSpeed: 2
+  FarmFloorSpeed: 0.5
+  plantManager: {fileID: 1994806663}
+  plantData: {fileID: 1994806662}
+  wallTilemap: {fileID: 1370676674}
+  FloorTilemap: {fileID: 2142840379473574461}
+  FarmTilemap: {fileID: 1155322108}
+  PlantTilemap: {fileID: 964442829}
+  softDirt: {fileID: 11400000, guid: 12225b82ebb7e7a45b91171096474b96, type: 2}
+  plant: {fileID: 11400000, guid: 84739620e1bb3f54daf6a176ad5337db, type: 2}
 --- !u!1839735485 &1370676674 stripped
 Tilemap:
   m_CorrespondingSourceObject: {fileID: 794477682382985918, guid: f9245ade12f1b664391a2388d8812ef3, type: 3}
@@ -1510,6 +1549,46 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 923922530}
     m_Modifications:
+    - target: {fileID: 794477682382985918, guid: f9245ade12f1b664391a2388d8812ef3, type: 3}
+      propertyPath: m_Tiles.Array.size
+      value: 16
+      objectReference: {fileID: 0}
+    - target: {fileID: 794477682382985918, guid: f9245ade12f1b664391a2388d8812ef3, type: 3}
+      propertyPath: m_Tiles.Array.data[16].first.y
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 794477682382985918, guid: f9245ade12f1b664391a2388d8812ef3, type: 3}
+      propertyPath: m_TileAssetArray.Array.data[0].m_Data
+      value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 794477682382985918, guid: f9245ade12f1b664391a2388d8812ef3, type: 3}
+      propertyPath: m_TileSpriteArray.Array.data[0].m_Data
+      value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 794477682382985918, guid: f9245ade12f1b664391a2388d8812ef3, type: 3}
+      propertyPath: m_TileAssetArray.Array.data[0].m_RefCount
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 794477682382985918, guid: f9245ade12f1b664391a2388d8812ef3, type: 3}
+      propertyPath: m_TileColorArray.Array.data[0].m_RefCount
+      value: 16
+      objectReference: {fileID: 0}
+    - target: {fileID: 794477682382985918, guid: f9245ade12f1b664391a2388d8812ef3, type: 3}
+      propertyPath: m_TileMatrixArray.Array.data[0].m_RefCount
+      value: 16
+      objectReference: {fileID: 0}
+    - target: {fileID: 794477682382985918, guid: f9245ade12f1b664391a2388d8812ef3, type: 3}
+      propertyPath: m_TileSpriteArray.Array.data[0].m_RefCount
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 794477682382985918, guid: f9245ade12f1b664391a2388d8812ef3, type: 3}
+      propertyPath: m_Tiles.Array.data[16].second.m_AllTileFlags
+      value: 1073741825
+      objectReference: {fileID: 0}
+    - target: {fileID: 794477682382985918, guid: f9245ade12f1b664391a2388d8812ef3, type: 3}
+      propertyPath: m_Tiles.Array.data[16].second.m_TileObjectToInstantiateIndex
+      value: 65535
+      objectReference: {fileID: 0}
     - target: {fileID: 2720873070752422506, guid: f9245ade12f1b664391a2388d8812ef3, type: 3}
       propertyPath: m_Name
       value: Wall_Tilemap
