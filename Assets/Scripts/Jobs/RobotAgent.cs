@@ -76,8 +76,9 @@ public class RobotAgent : MonoBehaviour
         }
 
         // 3) 픽업(적재량 1개 가정)
-        job.fromItem.Pickup(); // 실제로는 인벤토리 시스템이 있으면 거기로
         Reservations.ReleaseItem(job.fromItem);
+        job.fromItem.Pickup(); // 실제로는 인벤토리 시스템이 있으면 거기로
+        job.fromItem = null;                    
 
         // 4) 보관함 인접칸 이동
         if (job.toStorage == null) { Finish(false); yield break; }
@@ -94,15 +95,23 @@ public class RobotAgent : MonoBehaviour
 
     private void HandleTaskCompleted()
     {
-        // RobotManager의 이동+행동 사이클 종료 콜백
         if (currentJob == null) return;
-        // 작업 후 조건 재검증(간단 버전): 성공으로 간주
+
+        if (currentJob.type == CommandType.Haul) return;
+
         Finish(true);
     }
 
     private void Finish(bool success)
     {
         var finished = currentJob;
+
+        if (finished == null)
+        {
+            Debug.LogWarning("[RobotAgent] Finish called but currentJob == null (duplicate finish?)");
+            return;
+        }
+
         currentJob = null;
         onComplete?.Invoke(finished, success);
         JobDispatcher.NotifyIdle(this);

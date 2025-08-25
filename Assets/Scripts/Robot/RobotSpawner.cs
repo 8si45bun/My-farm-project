@@ -1,4 +1,3 @@
-using NUnit.Framework;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Tilemaps;
@@ -11,8 +10,6 @@ public class RobotSpawner : MonoBehaviour
     private GameObject robot;
     [SerializeField]
     private int robotCount = 10;
-    [SerializeField] 
-    public Transform target;
 
     private Vector3 offset = new Vector3(0.5f, -0.05f, 0.5f);
     private List<Vector3> possibleTiles = new List<Vector3>();

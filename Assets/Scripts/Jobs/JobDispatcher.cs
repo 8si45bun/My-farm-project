@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -138,22 +139,34 @@ public class JobDispatcher : MonoBehaviour
         }
         return best;
     }
-
+    public static event Action<Job, bool> OnJobCompleted;
+    // JobDispatcher.cs
     private void OnJobComplete(Job job, bool success)
     {
+        // 0-1) 널 가드 & 상태 로그 (디버깅용)
+        if (job == null) { Debug.LogError("[JobDispatcher] job is null"); return; }
+        Debug.Log($"[JobDispatcher] Complete: {job.type} {job.cell} success={success}");
+
         // 예약 해제
         if (job.type == CommandType.Haul)
-        {
             Reservations.ReleaseStorage(job.toStorage);
-        }
         else
-        {
             Reservations.ReleaseCell(job.cell, job.id.ToString());
-        }
 
         job.status = success ? JobStatus.Done : JobStatus.Failed;
 
-        // 남은 작업 혹은 하울링 재시도
+        // 0-2) ★ 구독자 예외를 잡아서 실제 원인 스택을 보자
+        try
+        {
+            OnJobCompleted?.Invoke(job, success);
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogError($"[JobDispatcher] OnJobCompleted subscriber threw:\n{ex}");
+        }
+
         TryAssignJobs();
     }
+
+
 }

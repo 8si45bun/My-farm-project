@@ -16,7 +16,7 @@ public class PlantData : MonoBehaviour
     public GameObject dropCrop;
     public int dropCount = 1;
 
-    private void OnVaildate()
+    private void OnValidate()
     {
         if (stages == null || stages.Length == 0) return;
         if(minutesPerStage == null || minutesPerStage.Length != stages.Length- 1) return;

@@ -79,6 +79,11 @@ public class RobotManager : MonoBehaviour
     {
         wallLayerMask = LayerMask.NameToLayer("Wall");
         softLayerMask = LayerMask.NameToLayer("SoftGround");
+
+        //if (wallLayerMask < 0)
+        //    Debug.LogError("wall 레이어가 프로젝트에 없음");
+        //if (softLayerMask < 0)
+        //    Debug.LogError("softGround 레이어가 프로젝트에 없음");
         InitGrid();
     }
 
@@ -252,9 +257,21 @@ public class RobotManager : MonoBehaviour
 
         // 인접 동작이면 도착 목표는 인접칸, 이동만이면 목표칸
         if (dig || cult || plantFlag || harvest)
-            targetPos = GetNearestAdjacent(TargetGrid);
+        {
+            var adj = GetNearestAdjacent(TargetGrid);
+
+            if(adj == TargetGrid)
+            {
+                IsBusy = false;
+                OnTaskCycleCompleted?.Invoke();
+                return;
+            }
+            targetPos = adj;
+        }  
         else
+        {
             targetPos = TargetGrid;
+        }
 
         StopAllCoroutines();
         IsBusy = true;
