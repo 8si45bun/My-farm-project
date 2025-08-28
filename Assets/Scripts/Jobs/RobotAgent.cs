@@ -59,13 +59,13 @@ public class RobotAgent : MonoBehaviour
 
     private System.Collections.IEnumerator HaulRoutine(Job job)
     {
-        // 1) 아이템 유효성 재검증
+        // 아이템 유효성 재검증
         if (job.fromItem == null || job.fromItem.gameObject == null)
         {
             Finish(false); yield break;
         }
 
-        // 2) 아이템 인접칸 이동
+        // 아이템 인접칸 이동
         var itemCell = Vector3Int.RoundToInt(job.fromItem.transform.position);
         robot.MoveToAdjacent(itemCell);
         while (robot.IsBusy) yield return null;
@@ -75,19 +75,23 @@ public class RobotAgent : MonoBehaviour
             Finish(false); yield break;
         }
 
-        // 3) 픽업(적재량 1개 가정)
-        Reservations.ReleaseItem(job.fromItem);
-        job.fromItem.Pickup(); // 실제로는 인벤토리 시스템이 있으면 거기로
-        job.fromItem = null;                    
+        // 픽업
+        var it = job.fromItem;
+        ItemType pickedType = it.itemType;
+        int pickedAmount = Mathf.Max(1, it.amount);
 
-        // 4) 보관함 인접칸 이동
+        Reservations.ReleaseItem(it);
+        it.Pickup();
+        job.fromItem = null;
+
+        // 보관함 인접칸 이동
         if (job.toStorage == null) { Finish(false); yield break; }
         var storageCell = Vector3Int.RoundToInt(job.toStorage.transform.position);
         robot.MoveToAdjacent(storageCell);
         while (robot.IsBusy) yield return null;
 
-        // 5) 저장
-        job.toStorage.Store(ItemType.Generic, 1);
+        // 저장
+        job.toStorage.Store(pickedType, pickedAmount);
         Reservations.ReleaseStorage(job.toStorage);
 
         Finish(true);

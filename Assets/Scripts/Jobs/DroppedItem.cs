@@ -5,7 +5,7 @@ public class DroppedItem : MonoBehaviour
 {
     public static readonly HashSet<DroppedItem> All = new();
 
-    public ItemType itemType = ItemType.Generic;
+    public ItemType itemType = ItemType.Corn;
     public int amount = 1;
     public int floorId = 0;
     [HideInInspector] public bool isReserved = false;
@@ -13,7 +13,6 @@ public class DroppedItem : MonoBehaviour
     private void OnEnable() => All.Add(this);
     private void OnDisable() => All.Remove(this);
 
-    // 실제 인벤토리 시스템이 없다면, 픽업 시 파괴
     public void Pickup()
     {
         Destroy(gameObject);
