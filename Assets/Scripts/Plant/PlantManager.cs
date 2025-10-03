@@ -6,11 +6,12 @@ public class PlantManager : MonoBehaviour
     [Header("Tilemaps")]
     public Tilemap farmTilemap;
     public Tilemap plantTilemap;
+    public Tilemap wallTilemap;
 
     private class PlantInstance
     {
         public PlantData data;
-        public int stage; // 현 식물 인덱스
+        public int stage;
         public int minutesInStage; 
     }
 
@@ -18,7 +19,7 @@ public class PlantManager : MonoBehaviour
 
     private void OnEnable()
     {
-        TimeManager.OnMinuteChanged += OnMinuteTick; //OnMinuteChanged 발동될때 같이 OnMinuteTick도 작동되게 해달라는것
+        TimeManager.OnMinuteChanged += OnMinuteTick;
     }
     private void OnDisable()
     {
@@ -73,6 +74,17 @@ public class PlantManager : MonoBehaviour
         return true;
     }
 
+    public bool WildPlantAt(Vector3Int cell, PlantData data)
+    {
+        if (wallTilemap.HasTile(cell)) return false;
+        if (farmTilemap.HasTile(cell)) return false;
+        if (plants.ContainsKey(cell)) return false;
+
+        plants[cell] = new PlantInstance { data = data, stage = 0, minutesInStage = 0 };
+        plantTilemap.SetTile(cell, data.stages[0]);
+        return true;
+    }
+
     public bool HarvestAt(Vector3Int cell, PlantData data)
     {
         if(!plants.TryGetValue(cell, out var p)) return false;
@@ -86,7 +98,7 @@ public class PlantManager : MonoBehaviour
         Vector3 center = plantTilemap.GetCellCenterWorld(cell);
         for(int i = 0; i < Mathf.Max(1, p.data.dropCount); i++)
         {
-            var pos = center;
+            var pos = center += new Vector3(Random.Range(0f, 0.4f), Random.Range(0f, 0.4f), Random.Range(0f, 0.4f));
             var go = Instantiate(p.data.dropCrop, pos , Quaternion.identity);
 
         }

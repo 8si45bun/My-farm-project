@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a43494a800c683249a3845950cbdd24f, type: 3}
+  m_Name: StarMossPlantData
+  m_EditorClassIdentifier: 
+  plantID: StarMoss
+  stages:
+  - {fileID: 11400000, guid: d8ebd2a1dc73af24a8465d8814ad5459, type: 2}
+  - {fileID: 11400000, guid: 4e3a6e6f4d1d56746b8f08e37ddf326c, type: 2}
+  minutesPerStage: 0200000004000000
+  dropCrop: {fileID: 4964198388935395361, guid: 29ff065868600aa488f57a1cfc5ed3d5, type: 3}
+  dropCount: 1

@@ -4,9 +4,6 @@ using UnityEngine;
 [RequireComponent(typeof(RobotManager))]
 public class RobotAgent : MonoBehaviour
 {
-    public int floorId = 0;                    // 현재 소속 층(추후 전이 지원)
-    public bool IsIdle => currentJob == null && !robot.IsBusy;
-
     private RobotManager robot;
     private Job currentJob;
     private Action<Job, bool> onComplete;      // 디스패처 콜백
@@ -18,12 +15,17 @@ public class RobotAgent : MonoBehaviour
         robot.OnTaskCycleCompleted += HandleTaskCompleted;
     }
 
-    private void OnEnable() => JobDispatcher.Register(this);
-    private void OnDisable() => JobDispatcher.Unregister(this);
+    private void OnEnable() { JobDispatcher.Register(this); }
+    private void OnDisable() { JobDispatcher.UnRegister(this); }
+
+    public bool IsIdle()
+    {
+        return (currentJob == null && !robot.IsBusy);
+    }
 
     public bool AcceptJob(Job job, Action<Job, bool> completionCallback)
     {
-        if (!IsIdle) return false;
+        if (!IsIdle()) return false;
         currentJob = job;
         onComplete = completionCallback;
 
@@ -44,12 +46,10 @@ public class RobotAgent : MonoBehaviour
             case CommandType.Harvest:
                 robot.StartHarvest(job.cell);
                 break;
-            case CommandType.Haul:
-                // Haul: 아이템 위치 → 인접칸 이동 후 픽업 → 스토리지 인접칸 이동 → 저장
+            case CommandType.Haul:           
                 StartCoroutine(HaulRoutine(job));
                 break;
             default:
-                Debug.LogWarning($"Unknown job {job}");
                 currentJob = null;
                 return false;
         }
@@ -80,7 +80,7 @@ public class RobotAgent : MonoBehaviour
         ItemType pickedType = it.itemType;
         int pickedAmount = Mathf.Max(1, it.amount);
 
-        Reservations.ReleaseItem(it);
+        //Reservations.ReleaseItem(it);
         it.Pickup();
         job.fromItem = null;
 
@@ -92,7 +92,7 @@ public class RobotAgent : MonoBehaviour
 
         // 저장
         job.toStorage.Store(pickedType, pickedAmount);
-        Reservations.ReleaseStorage(job.toStorage);
+       // Reservations.ReleaseStorage(job.toStorage);
 
         Finish(true);
     }
@@ -100,7 +100,6 @@ public class RobotAgent : MonoBehaviour
     private void HandleTaskCompleted()
     {
         if (currentJob == null) return;
-
         if (currentJob.type == CommandType.Haul) return;
 
         Finish(true);
@@ -109,12 +108,6 @@ public class RobotAgent : MonoBehaviour
     private void Finish(bool success)
     {
         var finished = currentJob;
-
-        if (finished == null)
-        {
-            Debug.LogWarning("[RobotAgent] Finish called but currentJob == null (duplicate finish?)");
-            return;
-        }
 
         currentJob = null;
         onComplete?.Invoke(finished, success);

@@ -1,10 +1,11 @@
 using UnityEngine;
 using UnityEngine.Tilemaps;
 
-public class PlantData : MonoBehaviour
+[CreateAssetMenu(fileName = "PlantData", menuName = "MyFarm/PlantData")]
+public class PlantData : ScriptableObject
 {
     [Header("PlantID")]
-    public string plantID = "Corn";
+    public string plantID = "Corn";      
 
     [Header("성장 단계 타일")]
     public TileBase[] stages;
@@ -16,9 +17,4 @@ public class PlantData : MonoBehaviour
     public GameObject dropCrop;
     public int dropCount = 1;
 
-    private void OnValidate()
-    {
-        if (stages == null || stages.Length == 0) return;
-        if(minutesPerStage == null || minutesPerStage.Length != stages.Length- 1) return;
-    }
 }

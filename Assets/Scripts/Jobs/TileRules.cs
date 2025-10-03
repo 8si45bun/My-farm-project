@@ -14,29 +14,27 @@ public class TileRules
 
     public bool CanDig(Vector3Int cell)
     {
-        return wall != null && wall.HasTile(cell);
+        return wall.HasTile(cell);
     }
 
     public bool CanCultivate(Vector3Int cell)
     {
-        if (wall != null && wall.HasTile(cell)) return false;
-        return farm != null && !farm.HasTile(cell); // 아직 경작X
+        if (wall.HasTile(cell)) return false;
+        return !farm.HasTile(cell);  
     }
 
     public bool CanPlant(Vector3Int cell)
     {
-        if (farm == null || !farm.HasTile(cell)) return false;
-        return plant == null || !plant.HasPlant(cell);
+        return !plant.HasPlant(cell) && farm.HasTile(cell);
     }
 
     public bool CanHarvest(Vector3Int cell)
     {
-        if (plant == null) return false;
         return plant.HasPlant(cell) && plant.IsMature(cell);
     }
 
     public bool CanMove(Vector3Int cell)
     {
-        return wall == null || !wall.HasTile(cell);
+        return !wall.HasTile(cell);
     }
 }

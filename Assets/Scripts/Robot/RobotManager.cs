@@ -28,12 +28,9 @@ public class RobotManager : MonoBehaviour
     public RobotDetect robotDetect;
 
     [Header("Control")]
-    [Tooltip("true면 기존처럼 마우스/키 입력으로 직접 조작, false면 외부(스케줄러)만 제어")]
     public bool manualControl = true;
 
-    /// <summary> 경로 이동/행동 수행 중 여부(외부 디스패처가 참조) </summary>
     public bool IsBusy { get; private set; }
-    /// <summary> 이동→행동 한 사이클 종료 시 발생(외부 디스패처가 후속 처리) </summary>
     public event Action OnTaskCycleCompleted;
 
     [Header("Moving")]
@@ -67,9 +64,8 @@ public class RobotManager : MonoBehaviour
     public Tilemap FarmTilemap;
     public Tilemap PlantTilemap;
     public Tile softDirt;
-    public Tile plant; // (현재 미사용)
+    public Tile plant; 
 
-    // --- Grid / A* ---
     int sizeX, sizeY;
     Node[,] NodeArray;
     Node StartNode, TargetNode, CurNode;
@@ -78,12 +74,7 @@ public class RobotManager : MonoBehaviour
     private void Awake()
     {
         wallLayerMask = LayerMask.NameToLayer("Wall");
-        softLayerMask = LayerMask.NameToLayer("SoftGround");
-
-        //if (wallLayerMask < 0)
-        //    Debug.LogError("wall 레이어가 프로젝트에 없음");
-        //if (softLayerMask < 0)
-        //    Debug.LogError("softGround 레이어가 프로젝트에 없음");
+        softLayerMask = LayerMask.NameToLayer("SoftDirt");
         InitGrid();
     }
 
@@ -208,7 +199,7 @@ public class RobotManager : MonoBehaviour
         }
     }
 
-    // === 외부 제어용 래퍼 ===
+    // 외부 제어용 래퍼
     public void MoveTo(Vector3Int cell)
     {
         PreparePathFlags(false, false, false, false, cell);
@@ -277,7 +268,6 @@ public class RobotManager : MonoBehaviour
         IsBusy = true;
     }
 
-    // === 유틸 ===
     private bool IsWallAt(Vector2Int grid)
     {
         Collider2D[] cols = Physics2D.OverlapCircleAll(
@@ -325,7 +315,6 @@ public class RobotManager : MonoBehaviour
         return best;
     }
 
-    // === A* Pathfinding ===
     public void PathFinding()
     {
         for (int i = 0; i < sizeX; i++)
@@ -396,7 +385,6 @@ public class RobotManager : MonoBehaviour
             OpenListAdd(CurNode.x - 1, CurNode.y);
         }
 
-        // 경로 실패
         Debug.LogWarning("Path not found");
         IsBusy = false;
         OnTaskCycleCompleted?.Invoke();
@@ -532,9 +520,9 @@ public class RobotManager : MonoBehaviour
 
         var cell = new Vector3Int(TargetGrid.x, TargetGrid.y, 0);
         if (plantManager && plantManager.HarvestAt(cell, plantData))
-            Debug.Log($"수확 완료: {plantData.plantID}");
+            Debug.Log("수확 완료");
         else
-            Debug.Log("수확 실패(미성숙/식물 없음)");
+            Debug.Log("수확 실패");
 
         isHarvest = false;
     }
