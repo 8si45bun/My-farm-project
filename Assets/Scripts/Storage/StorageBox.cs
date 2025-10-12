@@ -13,14 +13,11 @@ public class StorageBox : MonoBehaviour
 
     public static readonly HashSet<StorageBox> All = new();
     public static event Action OnAnyStorageChanged;
-    public int floorId = 0;
-    // 초기 설계: 무제한 수용
-    // 아이템 타입과 게임 오브젝트 리스트 딕셔너리, 아이템 타입과 수량 딕셔너리
+
     public List<ItemSlot> slots = new();
-    // 아이템 타입별 개수
+
     private readonly Dictionary<ItemType, int> counts = new();
-    // 오브젝트별 개수
-    public readonly Dictionary<GameObject, int> haveValue = new(); // 여기에 오브젝트 리스트랑 counts값 넣음
+    public readonly Dictionary<GameObject, int> haveValue = new();
 
     private void Start()
     {
@@ -40,9 +37,7 @@ public class StorageBox : MonoBehaviour
             counts[type] = cur + amount;
 
         UIUpdate();
-
         OnAnyStorageChanged?.Invoke();
-
         return true;
     }
 
@@ -82,5 +77,24 @@ public class StorageBox : MonoBehaviour
                 slot.obj.SetActive(false);
             }
         }
+    }
+
+    public static StorageBox FindClosest(Vector3 worldPos)
+    {
+        StorageBox closest = null;
+        float bestDist = float.MaxValue;
+
+        foreach (var s in All)
+        {
+            if (s == null) continue;
+            float d = Vector3.Distance(worldPos, s.transform.position);
+            if (d < bestDist)
+            {
+                bestDist = d;
+                closest = s;
+            }
+        }
+
+        return closest;
     }
 }

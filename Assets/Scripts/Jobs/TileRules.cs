@@ -1,15 +1,23 @@
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Tilemaps;
 
 public class TileRules
 {
+    private readonly Tilemap floor;
     private readonly Tilemap wall;
     private readonly Tilemap farm;
     private readonly PlantManager plant;
 
-    public TileRules(Tilemap wall, Tilemap farm, PlantManager plant)
+    private int ItemMask;
+    private void Awake()
     {
-        this.wall = wall; this.farm = farm; this.plant = plant;
+        ItemMask = LayerMask.GetMask("Item");
+    }
+
+    public TileRules(Tilemap floor, Tilemap wall, Tilemap farm, PlantManager plant)
+    {
+        this.floor = floor;  this.wall = wall; this.farm = farm; this.plant = plant;
     }
 
     public bool CanDig(Vector3Int cell)
@@ -37,4 +45,5 @@ public class TileRules
     {
         return !wall.HasTile(cell);
     }
+
 }

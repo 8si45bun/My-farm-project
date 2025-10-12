@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 8959950629283160714}
   - component: {fileID: 3591960254342085022}
   - component: {fileID: 3950132969677910285}
-  m_Layer: 0
+  m_Layer: 9
   m_Name: StarMossPrefeb
   m_TagString: Untagged
   m_Icon: {fileID: 0}

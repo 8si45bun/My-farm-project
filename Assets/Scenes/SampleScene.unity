@@ -1619,16 +1619,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5442308f1c9597a4faf1f1d1170e66a3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  floorId: 0
-  slots:
-  - type: 0
-    obj: {fileID: 435100781}
-  - type: 1
-    obj: {fileID: 393966953}
-  - type: 2
-    obj: {fileID: 68002430}
-  - type: 3
-    obj: {fileID: 1438903826}
+  slots: []
 --- !u!212 &903518710
 SpriteRenderer:
   m_ObjectHideFlags: 0
@@ -2310,6 +2301,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c7e1f4c7f6e98394b9857b14d3f58664, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  floorTilemap: {fileID: 2142840379473574461}
   wallTilemap: {fileID: 1370676674}
   farmTilemap: {fileID: 1155322108}
   plantManager: {fileID: 1994806663}
@@ -8507,7 +8499,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 5170a8ba5f83efc488be59f9b526a206, type: 2}
   BottomLeft: {x: -50, y: -50}
   TopRight: {x: 50, y: 50}
-  chance: 10
+  chance: 1
 --- !u!1 &2123119530
 GameObject:
   m_ObjectHideFlags: 0

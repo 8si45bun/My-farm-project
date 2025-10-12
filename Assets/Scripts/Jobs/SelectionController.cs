@@ -1,33 +1,34 @@
-using NUnit.Framework;
+ï»¿using NUnit.Framework;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Tilemaps;
 
 public class SelectionController : MonoBehaviour
 {
-    [Header("ÂüÁ¶")]
+    [Header("ì°¸ì¡°")]
+    public Tilemap floorTilemap;
     public Tilemap wallTilemap;
     public Tilemap farmTilemap;
     public PlantManager plantManager;
 
-    [Header("¿À¹ö·¹ÀÌ")]
-    public Tilemap overlayTilemap;  
+    [Header("ì˜¤ë²„ë ˆì´")]
+    public Tilemap overlayTilemap;
     public TileBase overlayTile;
 
-    [Header("µå·¡±×")]
+    [Header("ë“œë˜ê·¸")]
     [SerializeField] private LineRenderer previewLine;
     private Vector3 startWorld, endWorld;
 
-    [Header("»ö±ò")]
-    public Color digColor = new Color(1f, 0.55f, 0.1f, 0.35f);   // ÁÖÈ²
-    public Color cultivateColor = new Color(0.2f, 0.8f, 0.3f, 0.35f); // ÃÊ·Ï
-    public Color plantColor = new Color(0.2f, 0.6f, 1f, 0.35f); // ÆÄ¶û
-    public Color harvestColor = new Color(0.8f, 0.2f, 0.9f, 0.35f); // º¸¶ó
+    [Header("ìƒ‰ê¹”")]
+    public Color digColor = new Color(1f, 0.55f, 0.1f, 0.35f);   // ì£¼í™©
+    public Color cultivateColor = new Color(0.2f, 0.8f, 0.3f, 0.35f); // ì´ˆë¡
+    public Color plantColor = new Color(0.2f, 0.6f, 1f, 0.35f); // íŒŒë‘
+    public Color harvestColor = new Color(0.8f, 0.2f, 0.9f, 0.35f); // ë³´ë¼
     public Color moveColor = new Color(0.8f, 0.8f, 0.8f, 0.25f);
-    public Color haulColor = new Color(1f, 0.9f, 0.2f, 0.35f); // ³ë¶û
-    public Color NullColor = new Color(0f, 0f, 0f, 0f); 
+    public Color haulColor = new Color(1f, 0.9f, 0.2f, 0.35f); // ë…¸ë‘
+    public Color NullColor = new Color(0f, 0f, 0f, 0f);
 
-    [Header("ÀÔ·ÂÅ°")]
+    [Header("ì…ë ¥í‚¤")]
     public KeyCode dragKey = KeyCode.Mouse0;
     public KeyCode commandDefault = KeyCode.Alpha1;
     public KeyCode commandDig = KeyCode.Alpha2;
@@ -36,7 +37,7 @@ public class SelectionController : MonoBehaviour
     public KeyCode commandHarvest = KeyCode.Alpha5;
     public KeyCode commandHaul = KeyCode.Alpha6;
 
-    [Header("½Ä¹°")]
+    [Header("ì‹ë¬¼")]
     public PlantData[] plantCatalog;
     public int plantIndex = 0;
 
@@ -53,7 +54,7 @@ public class SelectionController : MonoBehaviour
 
     private void Awake()
     {
-        rules = new TileRules(wallTilemap, farmTilemap, plantManager);
+        rules = new TileRules(floorTilemap, wallTilemap, farmTilemap, plantManager);
         gridForCell = overlayTilemap.layoutGrid;
     }
 
@@ -108,17 +109,17 @@ public class SelectionController : MonoBehaviour
             HidePreviewLine();
             ApplySelection();
         }
-        
+
     }
 
     private Vector3 ScreenToWorld2D(Vector3 screen)
-    {    
+    {
         var world = Camera.main.ScreenToWorldPoint(new Vector3(screen.x, screen.y, 0.5f));
         world.z = 0;
         return world;
     }
 
-    // µå·¡±× ÇÁ¸®ºä 
+    // ë“œë˜ê·¸ í”„ë¦¬ë·° 
     private void UpdatePreviewLine(Vector3 a, Vector3 b)
     {
         float xMin = Mathf.Min(a.x, b.x);
@@ -144,7 +145,7 @@ public class SelectionController : MonoBehaviour
         previewLine.enabled = false;
     }
 
-    // È®Á¤(¸í·É µî·Ï) 
+    // í™•ì •(ëª…ë ¹ ë“±ë¡) 
     private void ApplySelection()
     {
         var rect = GetRect(startCell, endCell);
@@ -154,24 +155,65 @@ public class SelectionController : MonoBehaviour
             for (int x = rect.xMin; x < rect.xMax; x++)
                 cells.Add(new Vector3Int(x, y, 0));
 
-        var valid = FilterByCommand(cells, current);
-
+        var valid = new List<Vector3Int>();
         var jobs = new List<Job>();
-        foreach (var c in valid)
+
+        if (current == CommandType.Haul)
         {
-            jobs.Add(new Job
+            foreach (var c in cells)
             {
-                type = current,
-                cell = c,
-                plantData = (current == CommandType.Plant) ? plantCatalog[plantIndex] : null
-            });
+                Vector3 worldPos = floorTilemap.CellToWorld(c) + new Vector3(0.5f, 0.5f);
+                int itemMask = LayerMask.GetMask("Item");
+                Collider2D col = Physics2D.OverlapCircle(worldPos, 0.3f, itemMask);
+                if (col == null) continue;
+
+                var item = col.GetComponent<DroppedItem>();
+                if (item == null)
+                {
+                    RemoveConfirmed(c);
+                    continue;
+                }
+
+                var storage = StorageBox.FindClosest(worldPos);
+                if (storage == null)
+                {
+                    Debug.LogWarning("Haul ëª…ë ¹: StorageBoxë¥¼ ì°¾ì„ ìˆ˜ ì—†ìŠµë‹ˆë‹¤!");
+                    continue;
+                }
+
+                valid.Add(c); 
+
+                jobs.Add(new Job
+                {
+                    type = CommandType.Haul,
+                    cell = c,
+                    fromItem = item,
+                    toStorage = storage
+                });
+            }
         }
+        else
+        {
+            var filtered = FilterByCommand(cells, current);
+            foreach (var c in filtered)
+            {
+                jobs.Add(new Job
+                {
+                    type = current,
+                    cell = c,
+                    plantData = (current == CommandType.Plant) ? plantCatalog[plantIndex] : null
+                });
+            }
+            valid.AddRange(filtered);
+        }
+
         if (jobs.Count > 0)
         {
             JobDispatcher.EnqueueMany(jobs);
             PaintConfirmed(valid, current);
         }
     }
+
 
     private List<Vector3Int> FilterByCommand(List<Vector3Int> cells, CommandType cmd)
     {
@@ -220,7 +262,7 @@ public class SelectionController : MonoBehaviour
         };
     }
 
-    // ÀÛ¾÷ ¿Ï·á ½Ã ÇØ´ç Å¸ÀÏ¸¸ Á¦°Å 
+    // ì‘ì—… ì™„ë£Œ ì‹œ í•´ë‹¹ íƒ€ì¼ë§Œ ì œê±° 
     private void HandleJobCompleted(Job job, bool success)
     {
         RemoveConfirmed(job.cell);
@@ -244,8 +286,8 @@ public class SelectionController : MonoBehaviour
     {
         int xMin = Mathf.Min(a.x, b.x);
         int yMin = Mathf.Min(a.y, b.y);
-        int xMax = Mathf.Max(a.x, b.x) + 1; 
-        int yMax = Mathf.Max(a.y, b.y) + 1; 
+        int xMax = Mathf.Max(a.x, b.x) + 1;
+        int yMax = Mathf.Max(a.y, b.y) + 1;
         return new RectInt(xMin, yMin, xMax - xMin, yMax - yMin);
     }
 }
