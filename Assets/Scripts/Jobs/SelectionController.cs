@@ -1,6 +1,7 @@
 ﻿using NUnit.Framework;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.Tilemaps;
 
 public class SelectionController : MonoBehaviour
@@ -72,6 +73,8 @@ public class SelectionController : MonoBehaviour
 
     private void Update()
     {
+        if (EventSystem.current && EventSystem.current.IsPointerOverGameObject()) return;
+
         if (Input.GetKeyDown(commandDefault)) current = CommandType.Default;
         if (Input.GetKeyDown(commandDig)) current = CommandType.Dig;
         if (Input.GetKeyDown(commandCult)) current = CommandType.Cultivate;
@@ -265,6 +268,7 @@ public class SelectionController : MonoBehaviour
     // 작업 완료 시 해당 타일만 제거 
     private void HandleJobCompleted(Job job, bool success)
     {
+        if (job == null) return; 
         RemoveConfirmed(job.cell);
     }
 

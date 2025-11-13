@@ -34,8 +34,7 @@ public class WildPlantSpawner : MonoBehaviour
                     {
                         SpawnWildPlant(pos);
                     }
-                    else
-                        Debug.Log("WildPlantSpawner스크립트에서 Dirt가 없습니다");
+
                 }
             }
         }
@@ -44,11 +43,9 @@ public class WildPlantSpawner : MonoBehaviour
     private void SpawnWildPlant(Vector2Int pos)
     {
         float value = Random.Range(0f, 10f);
-        int plantIndex = Random.Range(0, 2);
-        if (value < chance && plantManager.WildPlantAt((Vector3Int)pos, plantData[plantIndex]))
-            Debug.Log("야생 식물 생성");
-
-
+        int plantIndex = Random.Range(0, 4);
+        if (value < chance && plantManager.WildPlantAt((Vector3Int)pos, plantData[plantIndex])) { }
+            
     }
     // 랜덤 식물을 랜덤 확률로 자라나게 하게
 }

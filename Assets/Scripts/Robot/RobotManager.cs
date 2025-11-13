@@ -26,9 +26,8 @@ public class RobotManager : MonoBehaviour
 {
     [Header("References")]
     public RobotDetect robotDetect;
-
-    [Header("Control")]
-    public bool manualControl = true;
+    public Animator animator;
+    public RobotProgress progress;
 
     public bool IsBusy { get; private set; }
     public event Action OnTaskCycleCompleted;
@@ -73,6 +72,8 @@ public class RobotManager : MonoBehaviour
 
     private void Awake()
     {
+        progress = GetComponent<RobotProgress>();
+        animator = GetComponent<Animator>();
         wallLayerMask = LayerMask.NameToLayer("Wall");
         softLayerMask = LayerMask.NameToLayer("SoftDirt");
         InitGrid();
@@ -107,99 +108,6 @@ public class RobotManager : MonoBehaviour
                g.y >= bottomLeft.y && g.y <= topRight.y;
     }
 
-    private void Update()
-    {
-        // 외부 제어 모드면 입력 무시
-        if (!manualControl) return;
-
-        if (Input.GetMouseButtonDown(1))
-        {
-            Vector2 clickWorld = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-            Vector2Int clickGrid = Vector2Int.RoundToInt(clickWorld);
-
-            if (!InBounds(clickGrid))
-            {
-                Debug.Log("그리드 범위를 벗어났습니다.");
-                return;
-            }
-
-            Vector2 robotWorld = robotTransform.position;
-            robotGrid = new Vector2Int(
-                Mathf.RoundToInt(robotWorld.x),
-                Mathf.RoundToInt(robotWorld.y)
-            );
-            startPos = robotGrid;
-
-            if (Input.GetKey(KeyCode.Q))
-            { // 채굴 모드
-                if (IsWallAt(clickGrid))
-                {
-                    isCultivate = false;
-                    isDigMode = true;
-                    isPlant = false;
-                    isHarvest = false;
-                    TargetGrid = clickGrid;
-
-                    targetPos = GetNearestAdjacent(clickGrid);
-                }
-                else
-                {
-                    Debug.Log("벽을 클릭해야 합니다.");
-                    return;
-                }
-            }
-            else if (Input.GetKey(KeyCode.E) && !IsWallAt(clickGrid))
-            { // 땅 경작
-                isDigMode = false;
-                isCultivate = true;
-                isHarvest = false;
-                isPlant = false;
-                TargetGrid = clickGrid;
-
-                targetPos = GetNearestAdjacent(clickGrid);
-            }
-            else if (Input.GetKey(KeyCode.T) && IsCultivateAt(clickGrid))
-            {
-                var cell = new Vector3Int(clickGrid.x, clickGrid.y, 0);
-
-                if (plantManager && plantManager.HasPlant(cell))
-                {
-                    if (plantManager.IsMature(cell))
-                    {
-                        isDigMode = isCultivate = isPlant = false;
-                        isHarvest = true;
-                        TargetGrid = clickGrid;
-                        targetPos = GetNearestAdjacent(clickGrid);
-                    }
-                    else
-                    {
-                        return;
-                    }
-                }
-                else
-                {
-                    isDigMode = isCultivate = isHarvest = false;
-                    isPlant = true;
-                    TargetGrid = clickGrid;
-                    targetPos = GetNearestAdjacent(clickGrid);
-                }
-            }
-            else
-            { // 이동 모드
-                isDigMode = false;
-                isHarvest = false;
-                isCultivate = false;
-                isPlant = false;
-                targetPos = clickGrid;
-            }
-
-            StopAllCoroutines(); // 이전 행동 멈추기
-            IsBusy = true;
-            PathFinding();
-        }
-    }
-
-    // 외부 제어용 래퍼
     public void MoveTo(Vector3Int cell)
     {
         PreparePathFlags(false, false, false, false, cell);
@@ -266,6 +174,7 @@ public class RobotManager : MonoBehaviour
 
         StopAllCoroutines();
         IsBusy = true;
+        animator.SetBool("Move", true); // 걷기 애니메이션 실행
     }
 
     private bool IsWallAt(Vector2Int grid)
@@ -316,7 +225,7 @@ public class RobotManager : MonoBehaviour
     }
 
     public void PathFinding()
-    {
+    {    
         for (int i = 0; i < sizeX; i++)
         {
             for (int j = 0; j < sizeY; j++)
@@ -461,24 +370,24 @@ public class RobotManager : MonoBehaviour
                     robotSpeed * Time.deltaTime
                 );
                 yield return null;
+
             }
         }
-
+        animator.SetBool("Move", false); // 걷기 애니메이션 종료
         // 도착 후 행동 실행
-        if (isDigMode) yield return StartCoroutine(DigWall_GameMinutes(4));
-        else if (isCultivate) yield return StartCoroutine(Cultivate_GameMinutes(2));
-        else if (isPlant) yield return StartCoroutine(Planting_GameMinutes(1));
-        else if (isHarvest) yield return StartCoroutine(HarvestAtTarget(1));
-
-        // 사이클 종료 콜백
+        if (isDigMode) yield return StartCoroutine(DigWall_GameMinutes(6));
+        else if (isCultivate) yield return StartCoroutine(Cultivate_GameMinutes(5));
+        else if (isPlant) yield return StartCoroutine(Planting_GameMinutes(3));
+        else if (isHarvest) yield return StartCoroutine(HarvestAtTarget(4));
+        
         IsBusy = false;
         OnTaskCycleCompleted?.Invoke();
     }
 
-    // === 작업 코루틴 ===
-
+    // 작업
     private IEnumerator DigWall_GameMinutes(int minutes)
     {
+        progress.PlayGameMinutes(minutes);
         yield return TimeManager.WaitGameMinutes(minutes);
 
         Vector3Int cellPos = wallTilemap.WorldToCell(new Vector3(TargetGrid.x, TargetGrid.y, 0f));
@@ -488,20 +397,26 @@ public class RobotManager : MonoBehaviour
         NodeArray[TargetGrid.x - bottomLeft.x, TargetGrid.y - bottomLeft.y].isWall = false;
 
         isDigMode = false;
+        if (progress) progress.StopHide();
     }
 
     private IEnumerator Cultivate_GameMinutes(int minutes)
     {
+        progress.PlayGameMinutes(minutes);
         yield return TimeManager.WaitGameMinutes(minutes);
 
         Vector3Int cellPos = FarmTilemap.WorldToCell(new Vector3(TargetGrid.x, TargetGrid.y, 0f));
         FarmTilemap.SetTile(cellPos, softDirt);
 
-        isCultivate = false;
+        isCultivate = false;  
+        if (progress) progress.StopHide();
+
     }
 
     private IEnumerator Planting_GameMinutes(int minutes)
     {
+        progress.PlayGameMinutes(minutes);
+        
         // 심는 데 걸리는 게임 시간
         yield return TimeManager.WaitGameMinutes(minutes);
 
@@ -510,12 +425,15 @@ public class RobotManager : MonoBehaviour
             Debug.Log($"{TargetGrid} 심기 완료");
         else
             Debug.Log("심기 실패(경작 아님/이미 심어짐/데이터 없음)");
-
+      
         isPlant = false;
+        if (progress) progress.StopHide();
     }
 
     private IEnumerator HarvestAtTarget(int minutes)
     {
+        progress.PlayGameMinutes(minutes);
+        
         yield return TimeManager.WaitGameMinutes(minutes);
 
         var cell = new Vector3Int(TargetGrid.x, TargetGrid.y, 0);
@@ -525,5 +443,6 @@ public class RobotManager : MonoBehaviour
             Debug.Log("수확 실패");
 
         isHarvest = false;
+        if (progress) progress.StopHide();
     }
 }

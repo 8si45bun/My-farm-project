@@ -15,7 +15,7 @@ TagManager:
   - SoftDirt
   - Dirt
   - Item
-  - 
+  - Ghost
   - 
   - 
   - 
@@ -40,6 +40,9 @@ TagManager:
   m_SortingLayers:
   - name: Default
     uniqueID: 0
+    locked: 0
+  - name: UI
+    uniqueID: 3844427411
     locked: 0
   m_RenderingLayers:
   - Default

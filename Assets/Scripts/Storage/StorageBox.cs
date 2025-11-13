@@ -41,6 +41,24 @@ public class StorageBox : MonoBehaviour
         return true;
     }
 
+    public bool TakeItem(ItemType type, int amount)
+    {
+        if (GetCount(type) < amount)
+        {
+            Debug.Log("수량이 안맞음 뭔가 잘못됨");
+            return false;
+        }
+
+        if (counts.TryGetValue(type, out var cur))
+            counts[type] = cur - amount;
+        else
+            Debug.Log("수량이 안맞음 뭔가 잘못됨2");
+
+        UIUpdate();
+        OnAnyStorageChanged?.Invoke();
+        return true;
+    }
+
     public int GetCount(ItemType type)
     {
         int value;

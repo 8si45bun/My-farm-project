@@ -14,7 +14,6 @@ public class MousePointer : MonoBehaviour
                 (Vector2)Camera.main.ScreenToWorldPoint(Input.mousePosition)
                 );
 
-            Debug.Log("mousePointerPos : " + mouseGridPos);
         }
     }
 }

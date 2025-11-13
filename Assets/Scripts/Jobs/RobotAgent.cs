@@ -1,18 +1,19 @@
 using System;
+using System.Collections;
 using UnityEngine;
 
-[RequireComponent(typeof(RobotManager))]
 public class RobotAgent : MonoBehaviour
 {
+    private RobotProgress progress;
     private RobotManager robot;
     private Job currentJob;
-    private Action<Job, bool> onComplete;      // 디스패처 콜백
+    private Action<Job, bool> onComplete;     
 
     private void Awake()
     {
         robot = GetComponent<RobotManager>();
-        robot.manualControl = false;           // 입력 직접 조종 비활성화
         robot.OnTaskCycleCompleted += HandleTaskCompleted;
+        progress = GetComponent<RobotProgress>();
     }
 
     private void OnEnable() { JobDispatcher.Register(this); }
@@ -49,6 +50,12 @@ public class RobotAgent : MonoBehaviour
             case CommandType.Haul:           
                 StartCoroutine(HaulRoutine(job));
                 break;
+            case CommandType.Build:
+                StartCoroutine(BuildRoutine(job));
+                break;
+            case CommandType.Craft:
+                StartCoroutine(CraftRoutine(job));
+                break;
             default:
                 currentJob = null;
                 return false;
@@ -57,7 +64,60 @@ public class RobotAgent : MonoBehaviour
         return true;
     }
 
-    private System.Collections.IEnumerator HaulRoutine(Job job)
+    private IEnumerator CraftRoutine(Job job)
+    {
+        var targetCell = job.cell;
+        robot.MoveTo(targetCell);
+        while (robot.IsBusy) yield return null;
+
+        int minutes = Mathf.Max(1, job.recipeMinute);
+        progress.PlayGameMinutes(minutes);
+        var panelProgress = job.targetThing.GetComponent<CreaterProgress>();
+
+        panelProgress.StartProgress(minutes);
+        yield return TimeManager.WaitGameMinutes(minutes);
+
+        var station = job.targetThing.GetComponent<CraftingStation>();
+        var outCell = Vector3Int.RoundToInt(station.transform.position);
+        StorageBox targetStorage = StorageBox.FindClosest(outCell);
+
+        if (targetStorage != null)
+        {
+            var p = Instantiate(job.recipeData.outputPrefebs, outCell, Quaternion.identity);
+            var item = p.GetComponent<DroppedItem>();
+
+            JobDispatcher.Enqueue(new Job
+            {
+                type = CommandType.Haul,
+                cell = outCell,
+                fromItem = item,
+                toStorage = targetStorage
+            });
+        }
+        
+        progress.StopHide();
+        yield return null;
+        Finish(true);
+    }
+
+    private IEnumerator BuildRoutine(Job job)
+    {
+        var targetCell = job.cell;
+        robot.MoveToAdjacent(targetCell);
+        while (robot.IsBusy) yield return null;
+
+        int minutes = Mathf.Max(1, job.buildMinutes);
+        progress.PlayGameMinutes(minutes);
+        yield return TimeManager.WaitGameMinutes(minutes);
+
+        job.targetThing.Setstage(BuildStage.Finished);
+
+        progress.StopHide();
+        yield return null;
+        Finish(true);
+    }
+
+    private IEnumerator HaulRoutine(Job job)
     {
         // 아이템 유효성 재검증
         if (job.fromItem == null || job.fromItem.gameObject == null)
@@ -80,7 +140,6 @@ public class RobotAgent : MonoBehaviour
         ItemType pickedType = it.itemType;
         int pickedAmount = Mathf.Max(1, it.amount);
 
-        //Reservations.ReleaseItem(it);
         it.Pickup();
         job.fromItem = null;
 
@@ -92,25 +151,36 @@ public class RobotAgent : MonoBehaviour
 
         // 저장
         job.toStorage.Store(pickedType, pickedAmount);
-       // Reservations.ReleaseStorage(job.toStorage);
 
+        yield return null;
         Finish(true);
+    }
+
+    private bool notifying;
+    private IEnumerator NotifyIdleNextFrame()
+    {
+        if (notifying) yield break;
+        notifying = true;
+        yield return null;
+        JobDispatcher.NotifyIdle(this);
+        notifying = false;
     }
 
     private void HandleTaskCompleted()
     {
         if (currentJob == null) return;
-        if (currentJob.type == CommandType.Haul) return;
-
+        if (currentJob.type == CommandType.Haul ||
+            currentJob.type == CommandType.Build ||
+            currentJob.type == CommandType.Craft) return;
         Finish(true);
     }
 
     private void Finish(bool success)
     {
         var finished = currentJob;
-
         currentJob = null;
         onComplete?.Invoke(finished, success);
-        JobDispatcher.NotifyIdle(this);
+
+        StartCoroutine(NotifyIdleNextFrame());      
     }
 }
