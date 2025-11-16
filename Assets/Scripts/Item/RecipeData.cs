@@ -4,6 +4,7 @@ using UnityEngine;
 public class RecipeData : ScriptableObject
 {
     public string recipeName;
+    public Sprite icon;
     public int recipeMinutes = 3;
     public GameObject outputPrefebs;
 

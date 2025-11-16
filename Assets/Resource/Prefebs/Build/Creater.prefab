@@ -166,6 +166,7 @@ MonoBehaviour:
   thing: {fileID: -8700773306340980261}
   recipeData:
   - {fileID: 11400000, guid: 6e066d1a329c8314886232a02b606214, type: 2}
+  - {fileID: 11400000, guid: dae4c187f5912514faeaa6111fd15b51, type: 2}
 --- !u!114 &6044112553644698955
 MonoBehaviour:
   m_ObjectHideFlags: 0

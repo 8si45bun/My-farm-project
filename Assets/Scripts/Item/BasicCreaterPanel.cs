@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -10,6 +11,7 @@ public class BasicCreaterPanel : MonoBehaviour
     public Button buttonPrefab;
     public TextMeshProUGUI title;
     public ProgressBar progressBar;
+    public List<GameObject> waitingList = new List<GameObject>();
 
     CraftingStation cur;
     CreaterProgress curProgress;
@@ -30,8 +32,11 @@ public class BasicCreaterPanel : MonoBehaviour
         foreach (var r in station.recipeData)
         {
             var b = Instantiate(buttonPrefab, listPanel);
-            //b.GetComponentInChildren<Sprite>()
+            Image image = b.GetComponent<Image>();
+            image.sprite = r.icon;
+            
             b.interactable = station.canCreaft(r);
+            
             b.onClick.AddListener(() => cur.EnqueueCraft(r));
         }
         panel.SetActive(true);

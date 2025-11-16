@@ -12457,6 +12457,7 @@ MonoBehaviour:
   buttonPrefab: {fileID: 7986193356178975140, guid: 0a275621663319e42906110b0edc86e9, type: 3}
   title: {fileID: 6810299199128852928}
   progressBar: {fileID: 3563054153299199774}
+  waitingList: []
 --- !u!222 &120166076871502265
 CanvasRenderer:
   m_ObjectHideFlags: 0
