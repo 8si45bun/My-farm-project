@@ -14,7 +14,7 @@ public class CraftingStation : MonoBehaviour
         if (storageBox == null)
             storageBox = StorageBox.FindClosest(transform.position);
 
-        if(createrProgress == null)
+        if (createrProgress == null)
             createrProgress = GetComponent<CreaterProgress>();
         JobDispatcher.OnJobCompleted += HandleJobCompleted;
     }
@@ -43,13 +43,13 @@ public class CraftingStation : MonoBehaviour
     public void EnqueueCraft(RecipeData r)
     {
         var box = ResolveStorage();
-        if (box == null) { TextManager.ShowDebug("근처에 저장고가 없습니다."); return; }
+        if (box == null) { TextManager.ShowDebug("저장고가 존재하지 않습니다."); return; }
 
-        if (!canCreaft(r)) { TextManager.ShowDebug("제작에 미내랄이 부족합니다"); return; }
+        if (!canCreaft(r)) { TextManager.ShowDebug("미내랄이 부족합니다"); return; }
 
         foreach (var c in r.costs) { storageBox.TakeItem(c.type, c.count); }
 
-        
+
         JobDispatcher.Enqueue(new Job
         {
             type = CommandType.Craft,
