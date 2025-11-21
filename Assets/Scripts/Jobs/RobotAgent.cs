@@ -7,8 +7,8 @@ public class RobotAgent : MonoBehaviour
     private RobotProgress progress;
     private RobotManager robot;
     private Job currentJob;
-    private Action<Job, bool> onComplete;     
-
+    private Action<Job, bool> onComplete;
+    public Job CurrentJob => currentJob;
     private void Awake()
     {
         robot = GetComponent<RobotManager>();

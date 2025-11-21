@@ -2,7 +2,7 @@ using UnityEngine;
 
 public class ButtonManager : MonoBehaviour
 {
-    [Header("Category Buttons")]
+    [Header("Category Panels")]
     public GameObject WorkCategory;
     public GameObject BuildCategory;
     public GameObject CreateCategory;
@@ -18,73 +18,72 @@ public class ButtonManager : MonoBehaviour
     public GameObject Creator;
     public GameObject Miner;
 
-    private bool isBuild = false;
-    private bool isWork = false;
-    private bool isCreate = false;
-
-    private void Update()
+    private void Start()
     {
-        if (isBuild) ShowBuildButtons();
-        else HideBuildButtons();
-
-        if (isWork) ShowWorkButtons();
-        else HideWorkButtons();
-
-        if (isCreate) ShowCreateButtons();
-        else HideCreateButtons();
+        HideAllCategories();
+        HideOverviewPanel();
     }
 
+    private void HideAllCategories()
+    {
+        if (WorkCategory != null) WorkCategory.SetActive(false);
+        if (BuildCategory != null) BuildCategory.SetActive(false);
+        if (CreateCategory != null) CreateCategory.SetActive(false);
+    }
 
+    private void HideOverviewPanel()
+    {
+        if (CraftingStationsOverviewPanel.Instance != null)
+        {
+            CraftingStationsOverviewPanel.Instance.Hide();
+        }
+    }
 
     public void BuildButtonPress()
     {
-        isBuild = !isBuild;
-        isWork = false;
-        isCreate = false;
+        bool willShow = BuildCategory != null && !BuildCategory.activeSelf;
+
+        HideAllCategories();
+        HideOverviewPanel();
+
+        if (BuildCategory != null && willShow)
+            BuildCategory.SetActive(true);
     }
 
     public void WorkButtonPress()
     {
-        isWork = !isWork;
-        isBuild = false;
-        isCreate = false;
+        bool willShow = WorkCategory != null && !WorkCategory.activeSelf;
+
+        HideAllCategories();
+        HideOverviewPanel();
+
+        if (WorkCategory != null && willShow)
+            WorkCategory.SetActive(true);
     }
 
     public void CreateButtonPress()
     {
-        isCreate = !isCreate;
-        isBuild = false;
-        isWork = false;
+        bool willShow = CreateCategory != null && !CreateCategory.activeSelf;
+
+        HideAllCategories();
+        HideOverviewPanel();
+
+        if (CreateCategory != null && willShow)
+            CreateCategory.SetActive(true);
     }
 
-    private void ShowCreateButtons()
+    public void CraftOverviewButtonPress()
     {
-        CreateCategory.SetActive(true);
-    }
+        var overview = CraftingStationsOverviewPanel.Instance;
+        if (overview == null) return;
 
-    private void HideCreateButtons()
-    {
-        CreateCategory.SetActive(false);
-    }
+        bool willShow = !overview.IsVisible;
 
-    private void ShowBuildButtons()
-    {
-        BuildCategory.SetActive(true);
-    }
+        HideAllCategories();
 
-    private void HideBuildButtons()
-    {
-        BuildCategory.SetActive(false);
+        if (willShow)
+            overview.Show();
+        else
+            overview.Hide();
     }
-
-    private void ShowWorkButtons()
-    {
-        WorkCategory.SetActive(true);
-    }
-
-    private void HideWorkButtons()
-    {
-        WorkCategory.SetActive(false);
-    }
-
 }

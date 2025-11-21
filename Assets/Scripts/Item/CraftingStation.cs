@@ -1,9 +1,12 @@
+using System.Collections.Generic;
 using System.Linq;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 
 public class CraftingStation : MonoBehaviour
 {
+
+    public static readonly HashSet<CraftingStation> All = new();
     public Thing thing;
     private StorageBox storageBox;
     public RecipeData[] recipeData;
@@ -11,6 +14,8 @@ public class CraftingStation : MonoBehaviour
 
     void OnEnable()
     {
+        All.Add(this);
+
         if (storageBox == null)
             storageBox = StorageBox.FindClosest(transform.position);
 
@@ -21,6 +26,7 @@ public class CraftingStation : MonoBehaviour
 
     private void OnDisable()
     {
+        All.Remove(this);
         JobDispatcher.OnJobCompleted -= HandleJobCompleted;
     }
 

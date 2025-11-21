@@ -22,11 +22,23 @@ public class JobDispatcher : MonoBehaviour
 
     public static event Action<Job, bool> OnJobCompleted;
 
+    public static IReadOnlyList<Job> GetQueueCreaterJob(Thing thing)
+    {
+        return Instance.jobList
+            .Where(j =>
+                j != null &&
+                j.status == JobStatus.Queued &&
+                j.type == CommandType.Craft &&
+                j.targetThing == thing)
+            .ToList();
+    }
+
     private List<Job> jobList = new(); // 큐는 앞뒤만 관리해서 한계가 있음
     private HashSet<RobotAgent> robots = new(); 
 
     public static void Enqueue(Job job)
     {
+        job.status = JobStatus.Queued;
         Instance.jobList.Add(job);
         Instance.TryAssignJobs();
     }
@@ -35,6 +47,7 @@ public class JobDispatcher : MonoBehaviour
     {
         foreach (var job in jobs)
         {
+            job.status = JobStatus.Queued;
             Instance.jobList.Add(job);
             Instance.TryAssignJobs();
         }
@@ -99,4 +112,24 @@ public class JobDispatcher : MonoBehaviour
 
         TryAssignJobs();
     }
+
+    public static Job GetActiveCraftJob(Thing thing)
+    {
+        if (thing == null) return null;
+
+        foreach (var robot in Instance.robots)
+        {
+            if (robot == null) continue;
+
+            var job = robot.CurrentJob;
+            if (job == null) continue;
+            if (job.type != CommandType.Craft) continue;
+            if (job.targetThing != thing) continue;
+
+            return job;
+        }
+
+        return null;
+    }
+
 }

@@ -61,6 +61,24 @@ public class BasicCreaterPanel : MonoBehaviour
 
             });
         }
+
+        foreach (var slot in waitingList)
+        {
+            var img = slot.GetComponent<Image>();
+            if (img != null) img.sprite = null;
+        }
+
+        if (cur != null && cur.thing != null)
+        {
+            var jobs = JobDispatcher.GetQueueCreaterJob(cur.thing);
+            for (int i = 0; i < waitingList.Count && i < jobs.Count; i++)
+            {
+                var img = waitingList[i].GetComponent<Image>();
+                if (img != null && jobs[i].recipeData != null)
+                    img.sprite = jobs[i].recipeData.icon;
+            }
+        }
+
         panel.SetActive(true);
     }
 
