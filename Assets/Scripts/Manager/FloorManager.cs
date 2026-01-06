@@ -14,7 +14,7 @@ public class FloorManager : MonoBehaviour
     public CameraController cameraController;
 
     [Header("FadeInAndOut")]
-    public UIFadeInOutAnimation UIFadeInOutAnimation;
+    //public UIFadeInOutAnimation UIFadeInOutAnimation;
 
     private List<GameObject> floors = new List<GameObject>();
     private int floorCount = 0;
@@ -63,8 +63,8 @@ public class FloorManager : MonoBehaviour
         Vector3 TargetPos = floors[index].transform.position;
         //Debug.Log("Ä«¸Þ¶ó Å¸°Ù Ãþ : " + index);
 
-        yield return StartCoroutine(UIFadeInOutAnimation.FadeOut());
+        //yield return StartCoroutine(UIFadeInOutAnimation.FadeOut());
         cameraController.MoveTo(TargetPos);
-        yield return StartCoroutine(UIFadeInOutAnimation.FadeIn());
+        //yield return StartCoroutine(UIFadeInOutAnimation.FadeIn());
     }
 }

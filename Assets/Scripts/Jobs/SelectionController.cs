@@ -27,8 +27,8 @@ public class SelectionController : MonoBehaviour
     public Color harvestColor = new Color(0.8f, 0.2f, 0.9f, 0.35f); // 보라
     public Color moveColor = new Color(0.8f, 0.8f, 0.8f, 0.25f);
     public Color haulColor = new Color(1f, 0.9f, 0.2f, 0.35f); // 노랑
+    public Color deconstructColor = new Color(0f, 0f, 0f, 0f);
     public Color NullColor = new Color(0f, 0f, 0f, 0f);
-
     [Header("입력키")]
     public KeyCode dragKey = KeyCode.Mouse0;
     public KeyCode commandDefault = KeyCode.Alpha1;
@@ -37,10 +37,7 @@ public class SelectionController : MonoBehaviour
     public KeyCode commandPlant = KeyCode.Alpha4;
     public KeyCode commandHarvest = KeyCode.Alpha5;
     public KeyCode commandHaul = KeyCode.Alpha6;
-
-    [Header("식물")]
-    public PlantData[] plantCatalog;
-    public int plantIndex = 0;
+    public KeyCode commandDeconstruct = KeyCode.Alpha7;
 
     public CommandType current = CommandType.Default;
 
@@ -71,6 +68,14 @@ public class SelectionController : MonoBehaviour
         ClearAllConfirmed();
     }
 
+    public void DefaultBtn() { current = CommandType.Default; }
+    public void DigBtn() { current = CommandType.Dig; }
+    public void CultivateBtn() { current = CommandType.Cultivate; }
+    public void PlantBtn() { current = CommandType.Plant; }
+    public void HarvestBtn() { current = CommandType.Harvest; }
+    public void HaulBtn() { current = CommandType.Haul; }
+    public void DeconstructBtn() { current = CommandType.Deconstruct; }
+
     private void Update()
     {
         if (EventSystem.current && EventSystem.current.IsPointerOverGameObject()) return;
@@ -81,6 +86,7 @@ public class SelectionController : MonoBehaviour
         if (Input.GetKeyDown(commandPlant)) current = CommandType.Plant;
         if (Input.GetKeyDown(commandHarvest)) current = CommandType.Harvest;
         if (Input.GetKeyDown(commandHaul)) current = CommandType.Haul;
+        if (Input.GetKeyDown(commandDeconstruct)) current = CommandType.Deconstruct;
 
         if (Input.GetKeyDown(dragKey))
         {
@@ -195,16 +201,51 @@ public class SelectionController : MonoBehaviour
                 });
             }
         }
-        else
+        else if (current == CommandType.Deconstruct)
+        {
+            foreach(var c in cells)
+            {
+                Vector3 worldPos = floorTilemap.CellToWorld(c) + new Vector3(0.5f, 0.5f);
+
+                Collider2D col = Physics2D.OverlapPoint(worldPos);
+                if(col == null) continue;
+
+                var thing = col.GetComponentInParent<Thing>();
+                if (thing == null) continue;
+                if (thing.stage != BuildStage.Finished) continue;
+
+                valid.Add(c);
+
+                jobs.Add(new Job
+                {
+                    type = CommandType.Deconstruct,
+                    cell = c,
+                    targetThing = thing,
+                    DemolitionMinute = 3,
+                });
+            }
+        }
+        else// if(current == CommandType.Plant)
         {
             var filtered = FilterByCommand(cells, current);
+
+            PlantData selectedPlant = null;
+            if (current == CommandType.Plant && ButtonManager.Instance != null)
+            {
+                selectedPlant = ButtonManager.Instance.CurrentPlant;
+                if (selectedPlant == null)
+                {
+                    TextManager.ShowDebug("심을 작물을 먼저 선택하세요.");
+                }
+            }
+
             foreach (var c in filtered)
             {
                 jobs.Add(new Job
                 {
                     type = current,
                     cell = c,
-                    plantData = (current == CommandType.Plant) ? plantCatalog[plantIndex] : null
+                    plantData = (current == CommandType.Plant) ? selectedPlant : null
                 });
             }
             valid.AddRange(filtered);

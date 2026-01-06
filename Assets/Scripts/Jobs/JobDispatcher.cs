@@ -70,6 +70,13 @@ public class JobDispatcher : MonoBehaviour
 
         foreach(var j in jobList.ToList())
         {
+            if((j.type == CommandType.Craft || 
+                j.type == CommandType.Build || 
+                j.type == CommandType.Deconstruct) && 
+                j.targetThing != null 
+                && HasActiveJob(j.targetThing))
+                continue;
+
             var best = PickBestRobot(j, idel);
             if (best == null) continue;
 
@@ -130,6 +137,26 @@ public class JobDispatcher : MonoBehaviour
         }
 
         return null;
+    }
+
+    public bool HasActiveJob(Thing thing)
+    {
+        if (thing == null) return false;
+
+        foreach (var robot in robots)
+        {
+            if (robot == null) continue;
+
+            var job = robot.CurrentJob;
+            if (job == null) continue;
+            if (job.type != CommandType.Craft && job.type != CommandType.Build
+                && job.type != CommandType.Deconstruct) continue;
+            if (job.targetThing != thing) continue;
+
+            return true;
+        }
+
+        return false;
     }
 
 }

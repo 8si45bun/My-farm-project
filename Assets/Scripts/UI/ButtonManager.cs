@@ -2,21 +2,21 @@ using UnityEngine;
 
 public class ButtonManager : MonoBehaviour
 {
+    public static ButtonManager Instance { get; private set; }
+
     [Header("Category Panels")]
     public GameObject WorkCategory;
     public GameObject BuildCategory;
     public GameObject CreateCategory;
+    public GameObject PlantCategory;
 
-    [Header("Work Buttons")]
-    public GameObject Dig;
-    public GameObject Cult;
-    public GameObject Plant;
-    public GameObject Harvest;
-    public GameObject Haul;
+    [Header("식물 데이터")]
+    public PlantData CurrentPlant { get; private set; }
 
-    [Header("Build Buttons")]
-    public GameObject Creator;
-    public GameObject Miner;
+    private void Awake()
+    {
+        Instance = this;
+    }
 
     private void Start()
     {
@@ -29,6 +29,7 @@ public class ButtonManager : MonoBehaviour
         if (WorkCategory != null) WorkCategory.SetActive(false);
         if (BuildCategory != null) BuildCategory.SetActive(false);
         if (CreateCategory != null) CreateCategory.SetActive(false);
+        if (PlantCategory != null) PlantCategory.SetActive(false);
     }
 
     private void HideOverviewPanel()
@@ -72,6 +73,17 @@ public class ButtonManager : MonoBehaviour
             CreateCategory.SetActive(true);
     }
 
+    public void PlantButtonPress()
+    {
+        bool willShow = PlantCategory != null && !PlantCategory.activeSelf;
+
+        //HideAllCategories();
+        //HideOverviewPanel();
+
+        if (PlantCategory != null && willShow)
+            PlantCategory.SetActive(true);
+    }
+
     public void CraftOverviewButtonPress()
     {
         var overview = CraftingStationsOverviewPanel.Instance;
@@ -85,5 +97,11 @@ public class ButtonManager : MonoBehaviour
             overview.Show();
         else
             overview.Hide();
+    }
+
+    public void SelectPlant(PlantData data)
+    {
+        CurrentPlant = data;
+        Debug.Log($"선택한 작물: {data.name}");
     }
 }

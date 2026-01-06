@@ -1,9 +1,15 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
+using Random = UnityEngine.Random;
 
 public class RobotAgent : MonoBehaviour
 {
+    [Header("해체 환급 아이템 프리팹")]
+    public GameObject woodPrefab;
+    public GameObject steelPrefab;
+
     private RobotProgress progress;
     private RobotManager robot;
     private Job currentJob;
@@ -56,6 +62,12 @@ public class RobotAgent : MonoBehaviour
             case CommandType.Craft:
                 StartCoroutine(CraftRoutine(job));
                 break;
+            case CommandType.Mine:
+                StartCoroutine(MineRoutine(job));
+                break;
+            case CommandType.Deconstruct:
+                StartCoroutine(DeconstructRoutine(job));
+                break;
             default:
                 currentJob = null;
                 return false;
@@ -64,8 +76,92 @@ public class RobotAgent : MonoBehaviour
         return true;
     }
 
+    private IEnumerator DeconstructRoutine(Job job)
+    {
+        if(job.targetThing == null)
+        {
+            Finish(false);
+            yield break;
+        }
+
+        var targetCell = Vector3Int.RoundToInt(job.targetThing.transform.position);
+
+        robot.MoveToAdjacent(targetCell);
+        while (robot.IsBusy) yield return null;
+
+        int minutes = Mathf.Max(1, job.buildMinutes);
+        progress.PlayGameMinutes(minutes);
+        yield return TimeManager.WaitGameMinutes(minutes);
+
+        GiveDeconstructRefund(job.targetThing);
+
+        progress.StopHide();
+
+        // 건물 제거
+        Destroy(job.targetThing.gameObject);
+
+        yield return null;
+        Finish(true);
+    }
+
+    private void GiveDeconstructRefund(Thing thing)
+    {
+        Vector3 dropPos = thing.transform.position;
+
+        ItemType refundType = ItemType.Wood;
+        int refundAmount = 1;
+
+        switch (thing.thingId)
+        {
+            case "Creater":
+                refundType = ItemType.Wood;
+                refundAmount = 1;  
+                break;
+
+            case "Miner":
+                refundType = ItemType.Steel;  
+                refundAmount = 1;
+                break;
+
+            case "Generator":
+                refundType = ItemType.Wood;
+                refundAmount = 1;
+                break;
+        }
+
+        GameObject prefab = null;
+        switch (refundType)
+        {
+            case ItemType.Wood:
+                prefab = woodPrefab;
+                break;
+            case ItemType.Steel:
+                prefab = steelPrefab;
+                break;
+
+            default: return;
+        }
+        if (prefab == null) return;
+
+        Vector3 offset = new Vector3(
+        Random.Range(-0.1f, 0.1f),
+        Random.Range(-0.1f, 0.1f),
+        0f);
+
+        var go = Instantiate(prefab, dropPos + offset, Quaternion.identity);
+
+        var dropped = go.GetComponent<DroppedItem>();
+        if (dropped != null)
+        {
+            dropped.itemType = refundType;
+            dropped.amount = refundAmount;
+        }
+    }
+
+
     private IEnumerator CraftRoutine(Job job)
     {
+        Debug.Log("제작 명령");
         var targetCell = job.cell;
         robot.MoveTo(targetCell);
         while (robot.IsBusy) yield return null;
@@ -85,7 +181,7 @@ public class RobotAgent : MonoBehaviour
         {
             var p = Instantiate(job.recipeData.outputPrefebs, outCell, Quaternion.identity);
             var item = p.GetComponent<DroppedItem>();
-
+            Debug.Log("제작 후 운반");
             JobDispatcher.Enqueue(new Job
             {
                 type = CommandType.Haul,
@@ -102,6 +198,7 @@ public class RobotAgent : MonoBehaviour
 
     private IEnumerator BuildRoutine(Job job)
     {
+        Debug.Log("건설 명령");
         var targetCell = job.cell;
         robot.MoveToAdjacent(targetCell);
         while (robot.IsBusy) yield return null;
@@ -117,8 +214,60 @@ public class RobotAgent : MonoBehaviour
         Finish(true);
     }
 
+    private IEnumerator MineRoutine(Job job)
+    {
+        var targetCell = job.cell;
+        robot.MoveTo(targetCell);
+        while (robot.IsBusy) yield return null;
+
+        int minutes = Mathf.Max(1, job.MinerMinute);
+        progress.PlayGameMinutes(minutes);
+        yield return TimeManager.WaitGameMinutes(minutes);
+
+        GameObject orePrefab = null;
+        var station = job.targetThing.GetComponent<MinerStation>();
+        orePrefab = station.GetOrePrefab(targetCell);
+
+        Vector3 worldPos = (Vector3)targetCell;
+        Vector3 offset = new Vector3(
+        Random.Range(-0.1f, 0.1f), -1, 0f);
+
+        var oreObj = Instantiate(orePrefab, worldPos+ offset, Quaternion.identity);
+
+        progress.StopHide();
+        yield return null;
+        Finish(true);
+    }
+
     private IEnumerator HaulRoutine(Job job)
     {
+        Vector3Int storageCell;
+        if (job.fromStorage != null && job.toGenerator != null)
+        {
+            storageCell = Vector3Int.RoundToInt(job.fromStorage.transform.position);
+            robot.MoveToAdjacent(storageCell);
+            while (robot.IsBusy) yield return null;
+            Debug.Log("창고 -> ??? 운반 명령");
+            int amount = Mathf.Max(1, job.haulCount);
+            bool taken = job.fromStorage.TryTake(job.haulItem, amount);
+            if (!taken)
+            {
+                Finish(false);
+                yield break;
+            }
+
+            var genCell = Vector3Int.RoundToInt(job.toGenerator.transform.position);
+            robot.MoveToAdjacent(genCell);
+            while (robot.IsBusy) yield return null;
+
+            job.toGenerator.OnFuelDelivered(amount);
+
+            yield return null;
+            Finish(true);
+            yield break;
+        }
+
+
         // 아이템 유효성 재검증
         if (job.fromItem == null || job.fromItem.gameObject == null)
         {
@@ -129,7 +278,7 @@ public class RobotAgent : MonoBehaviour
         var itemCell = Vector3Int.RoundToInt(job.fromItem.transform.position);
         robot.MoveToAdjacent(itemCell);
         while (robot.IsBusy) yield return null;
-
+        Debug.Log("??? -> 창고 운반 명령");
         if (job.fromItem == null || job.fromItem.gameObject == null)
         {
             Finish(false); yield break;
@@ -145,7 +294,7 @@ public class RobotAgent : MonoBehaviour
 
         // 보관함 인접칸 이동
         if (job.toStorage == null) { Finish(false); yield break; }
-        var storageCell = Vector3Int.RoundToInt(job.toStorage.transform.position);
+        storageCell = Vector3Int.RoundToInt(job.toStorage.transform.position);
         robot.MoveToAdjacent(storageCell);
         while (robot.IsBusy) yield return null;
 
@@ -171,7 +320,8 @@ public class RobotAgent : MonoBehaviour
         if (currentJob == null) return;
         if (currentJob.type == CommandType.Haul ||
             currentJob.type == CommandType.Build ||
-            currentJob.type == CommandType.Craft) return;
+            currentJob.type == CommandType.Craft ||
+            currentJob.type == CommandType.Mine) return;
         Finish(true);
     }
 
@@ -183,4 +333,5 @@ public class RobotAgent : MonoBehaviour
 
         StartCoroutine(NotifyIdleNextFrame());      
     }
+
 }

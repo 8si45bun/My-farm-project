@@ -13,9 +13,11 @@ public class ClickManager : MonoBehaviour
         {
             Vector2 p = Camera.ScreenToWorldPoint(Input.mousePosition);
             var col = Physics2D.OverlapPoint(p);
+            if (col == null) return;
 
             var thing = col.GetComponentInParent<Thing>();
             var craft = col.GetComponentInParent<CraftingStation>();
+            var generator = col.GetComponentInParent<BioFuelGenerator>();
 
             // ThingStatus
             var status = ThingStatus.Instance;
@@ -25,12 +27,20 @@ public class ClickManager : MonoBehaviour
                 else status.Hide();
             }
 
-            // BasicCreaterPanel
-            var panel = BasicCreaterPanel.Instance;
-            if (panel != null)
+            // CreaterPanel (제작대 클릭일 때만)
+            var createrPanel = BasicCreaterPanel.Instance;
+            if (createrPanel != null)
             {
-                if (thing != null && craft != null) panel.Show(craft);
-                else panel.Hide();
+                if (thing != null && craft != null) createrPanel.Show(craft);
+                else createrPanel.Hide();
+            }
+
+            // BioFuelGeneratorPanel (발전기 클릭일 때만)
+            var genPanel = BioFuelGeneratorPanel.Instance;
+            if (genPanel != null)
+            {
+                if (generator != null) genPanel.Show(generator);
+                else genPanel.Hide();
             }
         }
     }

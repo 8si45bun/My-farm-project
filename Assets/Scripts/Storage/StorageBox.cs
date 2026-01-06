@@ -97,6 +97,14 @@ public class StorageBox : MonoBehaviour
         }
     }
 
+    public bool TryTake(ItemType type, int amount)
+    {
+        int have = GetCount(type);
+        if (have < amount) return false;
+
+        return TakeItem(type, amount);
+    }
+
     public static StorageBox FindClosest(Vector3 worldPos)
     {
         StorageBox closest = null;

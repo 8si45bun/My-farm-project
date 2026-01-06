@@ -7,7 +7,6 @@ public class DroppedItem : MonoBehaviour
 
     public ItemType itemType = ItemType.Corn;
     public int amount = 1;
-    public int floorId = 0;
     [HideInInspector] public bool isReserved = false;
 
     private void OnEnable() => All.Add(this);

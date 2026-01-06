@@ -8,9 +8,14 @@ public class Job
     public JobStatus status;
     public Vector3Int cell;            
     public PlantData plantData;
+
     // Haul
     public DroppedItem fromItem;  
     public StorageBox toStorage;
+    public StorageBox fromStorage;
+    public BioFuelGenerator toGenerator;
+    public ItemType haulItem;
+    public int haulCount = 1;
 
     //Build
     public Thing targetThing;
@@ -19,4 +24,10 @@ public class Job
     //Craft
     public RecipeData recipeData;
     public int recipeMinute = 3;
+
+    //Miner
+    public int MinerMinute = 5;    
+
+    //Demolition
+    public int DemolitionMinute = 5;
 }

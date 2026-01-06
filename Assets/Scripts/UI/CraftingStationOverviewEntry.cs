@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 public class CraftingStationOverviewEntry : MonoBehaviour
@@ -9,6 +10,7 @@ public class CraftingStationOverviewEntry : MonoBehaviour
     public TextMeshProUGUI nameText;
     public ProgressBar progressBar;
     public List<Image> queueSlot;
+    public Button openButton;
 
     private CraftingStation station;
     private CreaterProgress progress;
@@ -21,6 +23,24 @@ public class CraftingStationOverviewEntry : MonoBehaviour
         RefreshName();
         RefreshProgress();
         RefreshQueue();
+
+
+        if (openButton == null)
+            openButton = GetComponent<Button>();
+
+        if (openButton != null)
+        {
+            openButton.onClick.RemoveAllListeners();
+            openButton.onClick.AddListener(EnrtryOpen);
+        }
+    }
+
+    public void EnrtryOpen( )
+    {
+        if (station == null) return;
+        var panel = BasicCreaterPanel.Instance;
+        panel.Show(station);
+        Debug.Log("Å¬¸¯µÊ2");
     }
 
     private void Update()
