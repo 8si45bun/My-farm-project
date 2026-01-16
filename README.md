@@ -25,3 +25,5 @@ Unity 6 (6000.3.3f1)를 활용해 개발 중인 림월드 스타일의 콜로니
 
 ### 3. 데이터 주도 설계 (Data-Driven)
 * `ScriptableObject`를 적극 활용하여 아이템, 식물, 제작 레시피 등의 데이터를 코드 수정 없이 인스펙터에서 관리할 수 있도록 구조화했습니다.
+
+해당 프로젝트의 유튜브 링크 : https://youtu.be/CgH2KKODMpI?si=9Kd2m-FsaSfIUTd7
