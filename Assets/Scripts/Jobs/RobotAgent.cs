@@ -6,6 +6,24 @@ using Random = UnityEngine.Random;
 
 public class RobotAgent : MonoBehaviour
 {
+    [Header("로봇 배터리")]
+    public float maxBattery = 100f;
+    public float currentBattery;
+    public float workDrainRate = 1.0f; // 작업 시 초당 소모량
+    public float moveDrainRate = 0.5f; // 이동 시 초당 소모량
+    public float chargeRate = 10f;    // 충전 속도
+    public float lowBatteryThreshold = 10f; // 배터리 부족 임계치
+    public float chargedThreshold = 90f; // 충전 완료 임계치
+
+    [Header("작업 메모리")]
+    private Job savedJob;
+    private Action<Job, bool> savedCallback;
+
+    [Header("하울")]
+    public bool isCarrying = false;
+    public ItemType carriedType;
+    public int carryingAmount;
+
     [Header("해체 환급 아이템 프리팹")]
     public GameObject woodPrefab;
     public GameObject steelPrefab;
@@ -15,11 +33,23 @@ public class RobotAgent : MonoBehaviour
     private Job currentJob;
     private Action<Job, bool> onComplete;
     public Job CurrentJob => currentJob;
+    public RobotState currentState = RobotState.Idle; // 로봇 상태
+
     private void Awake()
     {
         robot = GetComponent<RobotManager>();
         robot.OnTaskCycleCompleted += HandleTaskCompleted;
-        progress = GetComponent<RobotProgress>();
+        progress = GetComponent<RobotProgress>();       
+    }
+
+    private void Start()
+    {
+       currentBattery = maxBattery;
+    }
+
+    private void Update()
+    {
+        HandleBattery();
     }
 
     private void OnEnable() { JobDispatcher.Register(this); }
@@ -29,6 +59,80 @@ public class RobotAgent : MonoBehaviour
     {
         return (currentJob == null && !robot.IsBusy);
     }
+
+    private void HandleBattery()
+    {
+        if (currentState == RobotState.Working)
+        {
+            currentBattery -= workDrainRate * Time.deltaTime;
+        }
+        else if (currentState == RobotState.Moving)
+        {
+            currentBattery -= moveDrainRate * Time.deltaTime;
+        }
+
+        if (currentBattery <= lowBatteryThreshold && currentState != RobotState.Charging &&
+            currentState != RobotState.Emergency)
+        {
+            if(currentJob != null)
+            {
+                savedJob = currentJob;
+                savedCallback = onComplete;
+                currentJob = null;
+                onComplete = null;
+            }
+            currentState = RobotState.Emergency;
+            robot.GoToChargeStation();
+        }
+
+        if (currentState == RobotState.Emergency)
+        {
+            if (PowerManager.Instance != null)
+            {
+                Transform charger = PowerManager.Instance.GetClosestCharger(robot.transform.position);
+                if (charger != null)
+                {
+                    float distanceToCharger = Vector3.Distance(robot.transform.position, charger.position);
+                    if (distanceToCharger < 2f)
+                    {
+                        Debug.Log("충전소 도착 | 충전 시작");
+                        currentState = RobotState.Charging;
+                    }
+
+                }
+                else
+                {
+                    Debug.Log("충전소 없음");
+                }
+            }
+        }
+
+        if(currentState == RobotState.Charging)
+        {
+            currentBattery += chargeRate * Time.deltaTime;
+            if (currentBattery >= chargedThreshold)
+            {
+                currentState = RobotState.Idle;
+                Debug.Log("충전 완료 | 작업 재개");
+
+                if(savedJob != null)
+                {
+                    bool accepted = AcceptJob(savedJob, savedCallback);
+
+                    if (accepted)
+                    {
+                        savedJob = null;
+                        savedCallback = null;
+                        return;
+                    }
+                }
+
+                StartCoroutine(NotifyIdleNextFrame());
+            }
+        }
+        currentBattery = Mathf.Clamp(currentBattery, 0f, maxBattery);
+    }
+
 
     public bool AcceptJob(Job job, Action<Job, bool> completionCallback)
     {
@@ -241,65 +345,107 @@ public class RobotAgent : MonoBehaviour
 
     private IEnumerator HaulRoutine(Job job)
     {
-        Vector3Int storageCell;
-        if (job.fromStorage != null && job.toGenerator != null)
+        // 줍기 (아무것도 안 들고 있을 때만 실행)
+        if (!isCarrying)
         {
-            storageCell = Vector3Int.RoundToInt(job.fromStorage.transform.position);
-            robot.MoveToAdjacent(storageCell);
-            while (robot.IsBusy) yield return null;
-            Debug.Log("창고 -> ??? 운반 명령");
-            int amount = Mathf.Max(1, job.haulCount);
-            bool taken = job.fromStorage.TryTake(job.haulItem, amount);
-            if (!taken)
+            // CASE A: 창고 -> 발전기 (연료 보급)
+            if (job.fromStorage != null && job.toGenerator != null)
             {
-                Finish(false);
-                yield break;
+                var storageCell = Vector3Int.RoundToInt(job.fromStorage.transform.position);
+                robot.MoveToAdjacent(storageCell);
+                while (robot.IsBusy) yield return null;
+
+                // 도착 후 검증
+                if (job.fromStorage == null)
+                {
+                    Finish(false); yield break; 
+                }
+
+                int amount = Mathf.Max(1, job.haulCount);
+                bool taken = job.fromStorage.TryTake(job.haulItem, amount);
+
+                if (!taken)
+                {
+                    Finish(false); yield break;
+                }
+                isCarrying = true;
+                carriedType = job.haulItem; // 가져오려는 아이템 타입
+                carryingAmount = amount;
             }
 
-            var genCell = Vector3Int.RoundToInt(job.toGenerator.transform.position);
-            robot.MoveToAdjacent(genCell);
-            while (robot.IsBusy) yield return null;
+            // CASE B: 땅에 떨어진 아이템 -> 창고 (일반 운반)
+            else if (job.fromItem != null)
+            {
+                // 아이템 유효성 검사
+                if (job.fromItem == null || job.fromItem.gameObject == null)
+                {
+                    Finish(false); yield break;
+                }
 
-            job.toGenerator.OnFuelDelivered(amount);
+                // 이동
+                var itemCell = Vector3Int.RoundToInt(job.fromItem.transform.position);
+                robot.MoveToAdjacent(itemCell);
+                while (robot.IsBusy) yield return null;
 
-            yield return null;
-            Finish(true);
-            yield break;
+                // 이동 후 다시 확인 
+                if (job.fromItem == null || job.fromItem.gameObject == null)
+                {
+                    Finish(false); yield break;
+                }
+
+                // 픽업 및 인벤토리 업데이트
+                var it = job.fromItem;
+                isCarrying = true;
+                carriedType = it.itemType;
+                carryingAmount = Mathf.Max(1, it.amount);
+
+                it.Pickup(); // 맵 오브젝트 제거
+                job.fromItem = null; // 참조 제거 (메모리 누수 방지)
+            }
+            else
+            {
+                Finish(false); yield break;
+            }
         }
-
-
-        // 아이템 유효성 재검증
-        if (job.fromItem == null || job.fromItem.gameObject == null)
+        else
         {
-            Finish(false); yield break;
+            Debug.Log("이미 물건을 소지중입니다. 줍기 단계를 건너뜁니다.");
         }
 
-        // 아이템 인접칸 이동
-        var itemCell = Vector3Int.RoundToInt(job.fromItem.transform.position);
-        robot.MoveToAdjacent(itemCell);
-        while (robot.IsBusy) yield return null;
-        Debug.Log("??? -> 창고 운반 명령");
-        if (job.fromItem == null || job.fromItem.gameObject == null)
+        // 놓기 / 배달 (물건을 들고 있을 때만 실행)
+        if (isCarrying)
         {
-            Finish(false); yield break;
+            // CASE A: 발전기로 배달
+            if (job.toGenerator != null)
+            {
+                var genCell = Vector3Int.RoundToInt(job.toGenerator.transform.position);
+                robot.MoveToAdjacent(genCell);
+                while (robot.IsBusy) yield return null;
+
+                // 발전기에 연료 주입
+                if (job.toGenerator != null)
+                {
+                    job.toGenerator.OnFuelDelivered(carryingAmount);
+                }
+            }
+            // CASE B: 창고로 배달
+            else if (job.toStorage != null)
+            {
+                var storageCell = Vector3Int.RoundToInt(job.toStorage.transform.position);
+                robot.MoveToAdjacent(storageCell);
+                while (robot.IsBusy) yield return null;
+
+                // 창고에 저장
+                if (job.toStorage != null)
+                {
+                    job.toStorage.Store(carriedType, carryingAmount);
+                }
+            }
+
+            // 배달 완료 후 인벤토리 비우기
+            isCarrying = false;
+            carryingAmount = 0;
         }
-
-        // 픽업
-        var it = job.fromItem;
-        ItemType pickedType = it.itemType;
-        int pickedAmount = Mathf.Max(1, it.amount);
-
-        it.Pickup();
-        job.fromItem = null;
-
-        // 보관함 인접칸 이동
-        if (job.toStorage == null) { Finish(false); yield break; }
-        storageCell = Vector3Int.RoundToInt(job.toStorage.transform.position);
-        robot.MoveToAdjacent(storageCell);
-        while (robot.IsBusy) yield return null;
-
-        // 저장
-        job.toStorage.Store(pickedType, pickedAmount);
 
         yield return null;
         Finish(true);

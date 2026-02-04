@@ -384,6 +384,16 @@ public class RobotManager : MonoBehaviour
         OnTaskCycleCompleted?.Invoke();
     }
 
+    public void GoToChargeStation()
+    {
+        Transform charger = PowerManager.Instance.GetClosestCharger(transform.position);
+
+        if (charger != null)
+        {
+            MoveToAdjacent(Vector3Int.RoundToInt(charger.position));
+        }
+    }
+
     // ÀÛ¾÷
     private IEnumerator DigWall_GameMinutes(int minutes)
     {
@@ -445,4 +455,5 @@ public class RobotManager : MonoBehaviour
         isHarvest = false;
         if (progress) progress.StopHide();
     }
+
 }

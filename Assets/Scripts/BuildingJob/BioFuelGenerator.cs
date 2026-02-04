@@ -19,11 +19,26 @@ public class BioFuelGenerator : MonoBehaviour
     bool autoRun = true;   
     bool processing = false;
     float progress01 = 0f;
-
     int pendingHaul = 0;
 
     public event Action OnStateChanged;
     void NotifyChanged() => OnStateChanged?.Invoke();
+
+    private void Start()
+    {
+        if (PowerManager.Instance != null)
+        {
+            PowerManager.Instance.RegisterGenerator(this);
+        }
+    }
+
+    private void OnDestroy()
+    {
+        if (PowerManager.Instance != null)
+        {
+            PowerManager.Instance.UnregisterGenerator(this);
+        }
+    }
 
     private void OnEnable()
     {
@@ -95,7 +110,7 @@ public class BioFuelGenerator : MonoBehaviour
             yield return null;
         }
 
-        PowerManager.Instance.AddPower(powerPerFuel);
+        //PowerManager.Instance.AddPower(powerPerFuel);
 
         progress01 = 0f;
         processing = false;
