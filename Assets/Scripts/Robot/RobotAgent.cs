@@ -62,75 +62,57 @@ public class RobotAgent : MonoBehaviour
 
     private void HandleBattery()
     {
-        if (currentState == RobotState.Working)
+        bool isPowered = false;
+
+        if(PowerManager.Instance != null)
         {
-            currentBattery -= workDrainRate * Time.deltaTime;
-        }
-        else if (currentState == RobotState.Moving)
-        {
-            currentBattery -= moveDrainRate * Time.deltaTime;
+            isPowered = PowerManager.Instance.IsIInPowerRange(robot.transform.position);
         }
 
-        if (currentBattery <= lowBatteryThreshold && currentState != RobotState.Charging &&
-            currentState != RobotState.Emergency)
+        if (isPowered)
         {
-            if(currentJob != null)
+            // 범위 내일때 충전
+            currentBattery += chargeRate * Time.deltaTime;
+
+            if(currentState == RobotState.Charging && currentBattery >= chargedThreshold)
+            {
+                Debug.Log("충전 완료 (구역 내)");
+                currentState = RobotState.Idle;
+                StartCoroutine(NotifyIdleNextFrame());
+            }
+        }
+        else
+        {
+            float drainRate = 0f;
+            if (currentState == RobotState.Working) drainRate = workDrainRate;
+            else if (currentState == RobotState.Moving) drainRate = moveDrainRate;
+            
+            currentBattery -= drainRate * Time.deltaTime;
+        }
+
+        currentBattery = Mathf.Clamp(currentBattery, 0f, maxBattery);
+
+        if (!isPowered && currentBattery <= lowBatteryThreshold && currentState != RobotState.Emergency)
+        {
+            Debug.Log("배터리 부족 전력망 구역으로 대피합니다.");
+
+            if (currentJob != null)
             {
                 savedJob = currentJob;
                 savedCallback = onComplete;
                 currentJob = null;
                 onComplete = null;
             }
+
             currentState = RobotState.Emergency;
-            robot.GoToChargeStation();
+            robot.GoToChargeStation(); // 가장 가까운 전력 구역으로    
         }
 
-        if (currentState == RobotState.Emergency)
+        if (currentState == RobotState.Emergency && isPowered)
         {
-            if (PowerManager.Instance != null)
-            {
-                Transform charger = PowerManager.Instance.GetClosestCharger(robot.transform.position);
-                if (charger != null)
-                {
-                    float distanceToCharger = Vector3.Distance(robot.transform.position, charger.position);
-                    if (distanceToCharger < 2f)
-                    {
-                        Debug.Log("충전소 도착 | 충전 시작");
-                        currentState = RobotState.Charging;
-                    }
-
-                }
-                else
-                {
-                    Debug.Log("충전소 없음");
-                }
-            }
+            Debug.Log("전력망 진입 충전 대기.");
+            currentState = RobotState.Charging;
         }
-
-        if(currentState == RobotState.Charging)
-        {
-            currentBattery += chargeRate * Time.deltaTime;
-            if (currentBattery >= chargedThreshold)
-            {
-                currentState = RobotState.Idle;
-                Debug.Log("충전 완료 | 작업 재개");
-
-                if(savedJob != null)
-                {
-                    bool accepted = AcceptJob(savedJob, savedCallback);
-
-                    if (accepted)
-                    {
-                        savedJob = null;
-                        savedCallback = null;
-                        return;
-                    }
-                }
-
-                StartCoroutine(NotifyIdleNextFrame());
-            }
-        }
-        currentBattery = Mathf.Clamp(currentBattery, 0f, maxBattery);
     }
 
 
@@ -180,34 +162,6 @@ public class RobotAgent : MonoBehaviour
         return true;
     }
 
-    private IEnumerator DeconstructRoutine(Job job)
-    {
-        if(job.targetThing == null)
-        {
-            Finish(false);
-            yield break;
-        }
-
-        var targetCell = Vector3Int.RoundToInt(job.targetThing.transform.position);
-
-        robot.MoveToAdjacent(targetCell);
-        while (robot.IsBusy) yield return null;
-
-        int minutes = Mathf.Max(1, job.buildMinutes);
-        progress.PlayGameMinutes(minutes);
-        yield return TimeManager.WaitGameMinutes(minutes);
-
-        GiveDeconstructRefund(job.targetThing);
-
-        progress.StopHide();
-
-        // 건물 제거
-        Destroy(job.targetThing.gameObject);
-
-        yield return null;
-        Finish(true);
-    }
-
     private void GiveDeconstructRefund(Thing thing)
     {
         Vector3 dropPos = thing.transform.position;
@@ -219,11 +173,11 @@ public class RobotAgent : MonoBehaviour
         {
             case "Creater":
                 refundType = ItemType.Wood;
-                refundAmount = 1;  
+                refundAmount = 1;
                 break;
 
             case "Miner":
-                refundType = ItemType.Steel;  
+                refundType = ItemType.Steel;
                 refundAmount = 1;
                 break;
 
@@ -262,8 +216,35 @@ public class RobotAgent : MonoBehaviour
         }
     }
 
+    private IEnumerator DeconstructRoutine(Job job)
+    {
+        if(job.targetThing == null)
+        {
+            Finish(false);
+            yield break;
+        }
+        currentState = RobotState.Working;
+        var targetCell = Vector3Int.RoundToInt(job.targetThing.transform.position);
 
-    private IEnumerator CraftRoutine(Job job)
+        robot.MoveToAdjacent(targetCell);
+        while (robot.IsBusy) yield return null;
+
+        int minutes = Mathf.Max(1, job.buildMinutes);
+        progress.PlayGameMinutes(minutes);
+        yield return TimeManager.WaitGameMinutes(minutes);
+
+        GiveDeconstructRefund(job.targetThing);
+
+        progress.StopHide();
+
+        // 건물 제거
+        Destroy(job.targetThing.gameObject);
+
+        yield return null;
+        Finish(true);
+    }
+
+        private IEnumerator CraftRoutine(Job job)
     {
         Debug.Log("제작 명령");
         var targetCell = job.cell;

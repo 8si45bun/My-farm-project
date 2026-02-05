@@ -386,7 +386,7 @@ public class RobotManager : MonoBehaviour
 
     public void GoToChargeStation()
     {
-        Transform charger = PowerManager.Instance.GetClosestCharger(transform.position);
+        Transform charger = PowerManager.Instance.GetClosestPowerSource(transform.position);
 
         if (charger != null)
         {

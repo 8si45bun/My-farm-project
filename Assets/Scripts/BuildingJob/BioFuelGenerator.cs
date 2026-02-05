@@ -3,7 +3,7 @@ using System.Collections;
 using UnityEngine;
 using static UnityEngine.Rendering.DebugUI;
 
-public class BioFuelGenerator : MonoBehaviour
+public class BioFuelGenerator : MonoBehaviour, IPowerSource
 {
     [Header("World UI")]
     public ProgressBar worldProgressBar;
@@ -15,6 +15,8 @@ public class BioFuelGenerator : MonoBehaviour
 
     public int DesiredInput { get; private set; }  // 패널에서 설정하는 목표 개수
     public int StoredFuel { get; private set; }  // 이미 발전기에 들어와 있는 개수
+
+    public float suuplyRaduis = 3f; // 발전기 전력 공급 범위
 
     bool autoRun = true;   
     bool processing = false;
@@ -28,7 +30,7 @@ public class BioFuelGenerator : MonoBehaviour
     {
         if (PowerManager.Instance != null)
         {
-            PowerManager.Instance.RegisterGenerator(this);
+            PowerManager.Instance.RegisterSource(this);
         }
     }
 
@@ -36,7 +38,7 @@ public class BioFuelGenerator : MonoBehaviour
     {
         if (PowerManager.Instance != null)
         {
-            PowerManager.Instance.UnregisterGenerator(this);
+            PowerManager.Instance.RegisterSource(this);
         }
     }
 
@@ -55,6 +57,9 @@ public class BioFuelGenerator : MonoBehaviour
         if (worldProgressBar != null)
             worldProgressBar.SetProgressBar(progress01);
     }
+
+    public Vector3 GetPosition () => transform.position;
+    public float GetRadius () => suuplyRaduis;
 
     public void ChangeDesiredInput(int delta)
     {
