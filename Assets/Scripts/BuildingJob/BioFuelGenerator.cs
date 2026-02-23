@@ -8,17 +8,20 @@ public class BioFuelGenerator : MonoBehaviour, IPowerSource
     [Header("World UI")]
     public ProgressBar worldProgressBar;
 
-    [Header("¼³Á¤")]
+    [Header("ï¿½ï¿½ï¿½ï¿½")]
     private ItemType fuelType = ItemType.Corn;
-    public float secondsPerFuel = 20f;      // ¿Á¼ö¼ö 1°³ Ã³¸® ½Ã°£
-    public int powerPerFuel = 10;          // 1°³´ç Àü·Â
+    public float secondsPerFuel = 20f;      // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 1ï¿½ï¿½ Ã³ï¿½ï¿½ ï¿½Ã°ï¿½
+    public int powerPerFuel = 10;          // 1ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 
-    public int DesiredInput { get; private set; }  // ÆĞ³Î¿¡¼­ ¼³Á¤ÇÏ´Â ¸ñÇ¥ °³¼ö
-    public int StoredFuel { get; private set; }  // ÀÌ¹Ì ¹ßÀü±â¿¡ µé¾î¿Í ÀÖ´Â °³¼ö
+    public int DesiredInput { get; private set; }  // ï¿½Ğ³Î¿ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ï´ï¿½ ï¿½ï¿½Ç¥ ï¿½ï¿½ï¿½ï¿½
+    public int StoredFuel { get; private set; }  // ï¿½Ì¹ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½â¿¡ ï¿½ï¿½ï¿½ï¿½ ï¿½Ö´ï¿½ ï¿½ï¿½ï¿½ï¿½
 
-    public float suuplyRaduis = 3f; // ¹ßÀü±â Àü·Â °ø±Ş ¹üÀ§
+    public float suuplyRaduis = 3f; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 
-    bool autoRun = true;   
+    public float powerOutput = 30f;   // ê°€ë™ ì¤‘ ì œê³µí•˜ëŠ” ì „ë ¥ëŸ‰
+    private bool isRunning = false;
+
+    bool autoRun = true;
     bool processing = false;
     float progress01 = 0f;
     int pendingHaul = 0;
@@ -36,9 +39,10 @@ public class BioFuelGenerator : MonoBehaviour, IPowerSource
 
     private void OnDestroy()
     {
+        SetRunning(false);
         if (PowerManager.Instance != null)
         {
-            PowerManager.Instance.RegisterSource(this);
+            PowerManager.Instance.UnRegisterSource(this);
         }
     }
 
@@ -77,7 +81,18 @@ public class BioFuelGenerator : MonoBehaviour, IPowerSource
         TryStartProcess();
     }
 
-    // ·Îº¿ÀÌ ¿Á¼ö¼ö °¡Á®¿Í¼­ ³ÖÀ» ¶§
+    void SetRunning(bool running)
+    {
+        if (isRunning == running) return;
+        isRunning = running;
+        if (PowerManager.Instance != null)
+        {
+            if (running) PowerManager.Instance.AddCapacity(powerOutput);
+            else         PowerManager.Instance.RemoveCapacity(powerOutput);
+        }
+    }
+
+    // ï¿½Îºï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Í¼ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½
     public void OnFuelDelivered(int amount)
     {
         StoredFuel += amount;
@@ -88,7 +103,7 @@ public class BioFuelGenerator : MonoBehaviour, IPowerSource
         TryStartProcess();
     } 
 
-    // ---- ³»ºÎ Ã³¸® ----
+    // ---- ï¿½ï¿½ï¿½ï¿½ Ã³ï¿½ï¿½ ----
 
     void TryStartProcess()
     {
@@ -102,6 +117,7 @@ public class BioFuelGenerator : MonoBehaviour, IPowerSource
     IEnumerator ProcessRoutine()
     {
         processing = true;
+        SetRunning(true);
 
         StoredFuel = Mathf.Max(0, StoredFuel - 1);
         NotifyChanged();
@@ -115,10 +131,9 @@ public class BioFuelGenerator : MonoBehaviour, IPowerSource
             yield return null;
         }
 
-        //PowerManager.Instance.AddPower(powerPerFuel);
-
         progress01 = 0f;
         processing = false;
+        SetRunning(false);
 
         NotifyChanged();
         TryStartProcess();
@@ -132,15 +147,15 @@ public class BioFuelGenerator : MonoBehaviour, IPowerSource
 
     private void EnsureFuelJobs()
     {
-        // ¸ñÇ¥ - (ÀÌ¹Ì ¹ßÀü±â ¾È + ÀÌ¹Ì ±æ À§¿¡ ÀÖ´Â pending) ¸¸Å­¸¸ Ã¢°í¿¡¼­ ´õ °¡Á®¿À¶ó°í ¿äÃ»
+        // ï¿½ï¿½Ç¥ - (ï¿½Ì¹ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ + ï¿½Ì¹ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Ö´ï¿½ pending) ï¿½ï¿½Å­ï¿½ï¿½ Ã¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ã»
         int need = DesiredInput - (StoredFuel + pendingHaul);
         if (need <= 0) return;
 
-        // °¡Àå °¡±î¿î Ã¢°í Ã£±â 
+        // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ Ã¢ï¿½ï¿½ Ã£ï¿½ï¿½ 
         var storage = StorageBox.FindClosest(transform.position);
         if (storage == null) return;
 
-        // Ã¢°í¿¡ ½ÇÁ¦·Î ÀÖ´Â ¼ö·®
+        // Ã¢ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ö´ï¿½ ï¿½ï¿½ï¿½ï¿½
         int available = storage.GetCount(fuelType);
         if (available <= 0) return;
 

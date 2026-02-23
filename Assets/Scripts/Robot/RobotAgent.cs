@@ -6,25 +6,27 @@ using Random = UnityEngine.Random;
 
 public class RobotAgent : MonoBehaviour
 {
-    [Header("·Îº¿ ¹èÅÍ¸®")]
+    [Header("ï¿½Îºï¿½ ï¿½ï¿½ï¿½Í¸ï¿½")]
     public float maxBattery = 100f;
     public float currentBattery;
-    public float workDrainRate = 1.0f; // ÀÛ¾÷ ½Ã ÃÊ´ç ¼Ò¸ğ·®
-    public float moveDrainRate = 0.5f; // ÀÌµ¿ ½Ã ÃÊ´ç ¼Ò¸ğ·®
-    public float chargeRate = 10f;    // ÃæÀü ¼Óµµ
-    public float lowBatteryThreshold = 10f; // ¹èÅÍ¸® ºÎÁ· ÀÓ°èÄ¡
-    public float chargedThreshold = 90f; // ÃæÀü ¿Ï·á ÀÓ°èÄ¡
+    public float workDrainRate = 1.0f; // ï¿½Û¾ï¿½ ï¿½ï¿½ ï¿½Ê´ï¿½ ï¿½Ò¸ï¿½
+    public float moveDrainRate = 0.5f; // ï¿½Ìµï¿½ ï¿½ï¿½ ï¿½Ê´ï¿½ ï¿½Ò¸ï¿½
+    public float chargeRate = 10f;    // ï¿½ï¿½ï¿½ï¿½ ï¿½Óµï¿½
+    public float lowBatteryThreshold = 10f; // ï¿½ï¿½ï¿½Í¸ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Ó°ï¿½Ä¡
+    public float chargedThreshold = 90f; // ï¿½ï¿½ï¿½ï¿½ ï¿½Ï·ï¿½ ï¿½Ó°ï¿½Ä¡
+    public float chargeConsumption = 5f;      // ì¶©ì „ ì‹œ ì‚¬ìš©í•˜ëŠ” ì „ë ¥ëŸ‰
+    private bool isChargingFromGrid = false;  // í˜„ì¬ ì „ë ¥ë§ ì˜ˆì•½ ì¤‘ ì—¬ë¶€
 
-    [Header("ÀÛ¾÷ ¸Ş¸ğ¸®")]
+    [Header("ï¿½Û¾ï¿½ ï¿½Ş¸ï¿½")]
     private Job savedJob;
     private Action<Job, bool> savedCallback;
 
-    [Header("ÇÏ¿ï")]
+    [Header("ï¿½Ï¿ï¿½")]
     public bool isCarrying = false;
     public ItemType carriedType;
     public int carryingAmount;
 
-    [Header("ÇØÃ¼ È¯±Ş ¾ÆÀÌÅÛ ÇÁ¸®ÆÕ")]
+    [Header("ï¿½ï¿½Ã¼ È¯ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½")]
     public GameObject woodPrefab;
     public GameObject steelPrefab;
 
@@ -33,7 +35,7 @@ public class RobotAgent : MonoBehaviour
     private Job currentJob;
     private Action<Job, bool> onComplete;
     public Job CurrentJob => currentJob;
-    public RobotState currentState = RobotState.Idle; // ·Îº¿ »óÅÂ
+    public RobotState currentState = RobotState.Idle; // ï¿½Îºï¿½ ï¿½ï¿½ï¿½ï¿½
 
     private void Awake()
     {
@@ -60,6 +62,20 @@ public class RobotAgent : MonoBehaviour
         return (currentJob == null && !robot.IsBusy);
     }
 
+    void RegisterGridCharge()
+    {
+        if (isChargingFromGrid) return;
+        if (PowerManager.Instance != null && PowerManager.Instance.TryAddConsumer(chargeConsumption))
+            isChargingFromGrid = true;
+    }
+
+    void UnregisterGridCharge()
+    {
+        if (!isChargingFromGrid) return;
+        PowerManager.Instance?.RemoveConsumer(chargeConsumption);
+        isChargingFromGrid = false;
+    }
+
     private void HandleBattery()
     {
         bool isPowered = false;
@@ -71,22 +87,38 @@ public class RobotAgent : MonoBehaviour
 
         if (isPowered)
         {
-            // ¹üÀ§ ³»ÀÏ¶§ ÃæÀü
-            currentBattery += chargeRate * Time.deltaTime;
+            RegisterGridCharge();
 
-            if(currentState == RobotState.Charging && currentBattery >= chargedThreshold)
+            if (isChargingFromGrid)
             {
-                Debug.Log("ÃæÀü ¿Ï·á (±¸¿ª ³»)");
-                currentState = RobotState.Idle;
-                StartCoroutine(NotifyIdleNextFrame());
+                // ë°œì „ê¸°ê°€ ì£½ì–´ ì „ë ¥ ê³¼ë¶€í•˜ ì‹œ ì¶©ì „ í•´ì œ
+                if (PowerManager.Instance != null &&
+                    PowerManager.Instance.TotalCapacity < PowerManager.Instance.TotalConsumed)
+                {
+                    UnregisterGridCharge();
+                }
+                else
+                {
+                    currentBattery += chargeRate * Time.deltaTime;
+
+                    if (currentState == RobotState.Charging && currentBattery >= chargedThreshold)
+                    {
+                        Debug.Log("ì¶©ì „ ì™„ë£Œ (ë²”ìœ„ ë‚´)");
+                        UnregisterGridCharge();
+                        currentState = RobotState.Idle;
+                        StartCoroutine(NotifyIdleNextFrame());
+                    }
+                }
             }
         }
         else
         {
+            UnregisterGridCharge();
+
             float drainRate = 0f;
             if (currentState == RobotState.Working) drainRate = workDrainRate;
             else if (currentState == RobotState.Moving) drainRate = moveDrainRate;
-            
+
             currentBattery -= drainRate * Time.deltaTime;
         }
 
@@ -94,7 +126,7 @@ public class RobotAgent : MonoBehaviour
 
         if (!isPowered && currentBattery <= lowBatteryThreshold && currentState != RobotState.Emergency)
         {
-            Debug.Log("¹èÅÍ¸® ºÎÁ· Àü·Â¸Á ±¸¿ªÀ¸·Î ´ëÇÇÇÕ´Ï´Ù.");
+            Debug.Log("ë°°í„°ë¦¬ ë¶€ì¡± ìƒíƒœë¡œ ë¹„ìƒëª¨ë“œë¡œ ì „í™˜í•©ë‹ˆë‹¤.");
 
             if (currentJob != null)
             {
@@ -105,12 +137,12 @@ public class RobotAgent : MonoBehaviour
             }
 
             currentState = RobotState.Emergency;
-            robot.GoToChargeStation(); // °¡Àå °¡±î¿î Àü·Â ±¸¿ªÀ¸·Î    
+            robot.GoToChargeStation();
         }
 
         if (currentState == RobotState.Emergency && isPowered)
         {
-            Debug.Log("Àü·Â¸Á ÁøÀÔ ÃæÀü ´ë±â.");
+            Debug.Log("ë¹„ìƒì„ í•´ì œ í›„ì— ì¶©ì „ ì¤‘.");
             currentState = RobotState.Charging;
         }
     }
@@ -237,7 +269,7 @@ public class RobotAgent : MonoBehaviour
 
         progress.StopHide();
 
-        // °Ç¹° Á¦°Å
+        // ï¿½Ç¹ï¿½ ï¿½ï¿½ï¿½ï¿½
         Destroy(job.targetThing.gameObject);
 
         yield return null;
@@ -246,7 +278,7 @@ public class RobotAgent : MonoBehaviour
 
         private IEnumerator CraftRoutine(Job job)
     {
-        Debug.Log("Á¦ÀÛ ¸í·É");
+        Debug.Log("ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½");
         var targetCell = job.cell;
         robot.MoveTo(targetCell);
         while (robot.IsBusy) yield return null;
@@ -266,7 +298,7 @@ public class RobotAgent : MonoBehaviour
         {
             var p = Instantiate(job.recipeData.outputPrefebs, outCell, Quaternion.identity);
             var item = p.GetComponent<DroppedItem>();
-            Debug.Log("Á¦ÀÛ ÈÄ ¿î¹İ");
+            Debug.Log("ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½");
             JobDispatcher.Enqueue(new Job
             {
                 type = CommandType.Haul,
@@ -283,7 +315,7 @@ public class RobotAgent : MonoBehaviour
 
     private IEnumerator BuildRoutine(Job job)
     {
-        Debug.Log("°Ç¼³ ¸í·É");
+        Debug.Log("ï¿½Ç¼ï¿½ ï¿½ï¿½ï¿½ï¿½");
         var targetCell = job.cell;
         robot.MoveToAdjacent(targetCell);
         while (robot.IsBusy) yield return null;
@@ -326,17 +358,17 @@ public class RobotAgent : MonoBehaviour
 
     private IEnumerator HaulRoutine(Job job)
     {
-        // Áİ±â (¾Æ¹«°Íµµ ¾È µé°í ÀÖÀ» ¶§¸¸ ½ÇÇà)
+        // ï¿½İ±ï¿½ (ï¿½Æ¹ï¿½ï¿½Íµï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½)
         if (!isCarrying)
         {
-            // CASE A: Ã¢°í -> ¹ßÀü±â (¿¬·á º¸±Ş)
+            // CASE A: Ã¢ï¿½ï¿½ -> ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ (ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½)
             if (job.fromStorage != null && job.toGenerator != null)
             {
                 var storageCell = Vector3Int.RoundToInt(job.fromStorage.transform.position);
                 robot.MoveToAdjacent(storageCell);
                 while (robot.IsBusy) yield return null;
 
-                // µµÂø ÈÄ °ËÁõ
+                // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
                 if (job.fromStorage == null)
                 {
                     Finish(false); yield break; 
@@ -350,38 +382,38 @@ public class RobotAgent : MonoBehaviour
                     Finish(false); yield break;
                 }
                 isCarrying = true;
-                carriedType = job.haulItem; // °¡Á®¿À·Á´Â ¾ÆÀÌÅÛ Å¸ÀÔ
+                carriedType = job.haulItem; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Å¸ï¿½ï¿½
                 carryingAmount = amount;
             }
 
-            // CASE B: ¶¥¿¡ ¶³¾îÁø ¾ÆÀÌÅÛ -> Ã¢°í (ÀÏ¹İ ¿î¹İ)
+            // CASE B: ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ -> Ã¢ï¿½ï¿½ (ï¿½Ï¹ï¿½ ï¿½ï¿½ï¿½)
             else if (job.fromItem != null)
             {
-                // ¾ÆÀÌÅÛ À¯È¿¼º °Ë»ç
+                // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½È¿ï¿½ï¿½ ï¿½Ë»ï¿½
                 if (job.fromItem == null || job.fromItem.gameObject == null)
                 {
                     Finish(false); yield break;
                 }
 
-                // ÀÌµ¿
+                // ï¿½Ìµï¿½
                 var itemCell = Vector3Int.RoundToInt(job.fromItem.transform.position);
                 robot.MoveToAdjacent(itemCell);
                 while (robot.IsBusy) yield return null;
 
-                // ÀÌµ¿ ÈÄ ´Ù½Ã È®ÀÎ 
+                // ï¿½Ìµï¿½ ï¿½ï¿½ ï¿½Ù½ï¿½ È®ï¿½ï¿½ 
                 if (job.fromItem == null || job.fromItem.gameObject == null)
                 {
                     Finish(false); yield break;
                 }
 
-                // ÇÈ¾÷ ¹× ÀÎº¥Åä¸® ¾÷µ¥ÀÌÆ®
+                // ï¿½È¾ï¿½ ï¿½ï¿½ ï¿½Îºï¿½ï¿½ä¸® ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ®
                 var it = job.fromItem;
                 isCarrying = true;
                 carriedType = it.itemType;
                 carryingAmount = Mathf.Max(1, it.amount);
 
-                it.Pickup(); // ¸Ê ¿ÀºêÁ§Æ® Á¦°Å
-                job.fromItem = null; // ÂüÁ¶ Á¦°Å (¸Ş¸ğ¸® ´©¼ö ¹æÁö)
+                it.Pickup(); // ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ® ï¿½ï¿½ï¿½ï¿½
+                job.fromItem = null; // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ (ï¿½Ş¸ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½)
             }
             else
             {
@@ -390,40 +422,40 @@ public class RobotAgent : MonoBehaviour
         }
         else
         {
-            Debug.Log("ÀÌ¹Ì ¹°°ÇÀ» ¼ÒÁöÁßÀÔ´Ï´Ù. Áİ±â ´Ü°è¸¦ °Ç³Ê¶İ´Ï´Ù.");
+            Debug.Log("ï¿½Ì¹ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô´Ï´ï¿½. ï¿½İ±ï¿½ ï¿½Ü°è¸¦ ï¿½Ç³Ê¶İ´Ï´ï¿½.");
         }
 
-        // ³õ±â / ¹è´Ş (¹°°ÇÀ» µé°í ÀÖÀ» ¶§¸¸ ½ÇÇà)
+        // ï¿½ï¿½ï¿½ï¿½ / ï¿½ï¿½ï¿½ (ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½)
         if (isCarrying)
         {
-            // CASE A: ¹ßÀü±â·Î ¹è´Ş
+            // CASE A: ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½
             if (job.toGenerator != null)
             {
                 var genCell = Vector3Int.RoundToInt(job.toGenerator.transform.position);
                 robot.MoveToAdjacent(genCell);
                 while (robot.IsBusy) yield return null;
 
-                // ¹ßÀü±â¿¡ ¿¬·á ÁÖÀÔ
+                // ï¿½ï¿½ï¿½ï¿½ï¿½â¿¡ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
                 if (job.toGenerator != null)
                 {
                     job.toGenerator.OnFuelDelivered(carryingAmount);
                 }
             }
-            // CASE B: Ã¢°í·Î ¹è´Ş
+            // CASE B: Ã¢ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½
             else if (job.toStorage != null)
             {
                 var storageCell = Vector3Int.RoundToInt(job.toStorage.transform.position);
                 robot.MoveToAdjacent(storageCell);
                 while (robot.IsBusy) yield return null;
 
-                // Ã¢°í¿¡ ÀúÀå
+                // Ã¢ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
                 if (job.toStorage != null)
                 {
                     job.toStorage.Store(carriedType, carryingAmount);
                 }
             }
 
-            // ¹è´Ş ¿Ï·á ÈÄ ÀÎº¥Åä¸® ºñ¿ì±â
+            // ï¿½ï¿½ï¿½ ï¿½Ï·ï¿½ ï¿½ï¿½ ï¿½Îºï¿½ï¿½ä¸® ï¿½ï¿½ï¿½ï¿½
             isCarrying = false;
             carryingAmount = 0;
         }

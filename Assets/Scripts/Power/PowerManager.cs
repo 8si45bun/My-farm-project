@@ -10,7 +10,22 @@ public class PowerManager : MonoBehaviour
 
     private void Awake() => Instance = this;
 
-    // --- µî·Ï/ÇØÁ¦ ---
+    // --- ì „ë ¥ëŸ‰ ìš©ëŸ‰ ì˜ˆì•½ ëª¨ë¸ ---
+    public float TotalCapacity { get; private set; } = 0f;
+    public float TotalConsumed { get; private set; } = 0f;
+    public float RemainingPower => Mathf.Max(0f, TotalCapacity - TotalConsumed);
+
+    public void AddCapacity(float amount) => TotalCapacity += amount;
+    public void RemoveCapacity(float amount) => TotalCapacity = Mathf.Max(0f, TotalCapacity - amount);
+
+    public bool TryAddConsumer(float demand)
+    {
+        if (RemainingPower >= demand) { TotalConsumed += demand; return true; }
+        return false;
+    }
+    public void RemoveConsumer(float demand) => TotalConsumed = Mathf.Max(0f, TotalConsumed - demand);
+
+    // --- ï¿½ï¿½ï¿½/ï¿½ï¿½ï¿½ï¿½ ---
     public void RegisterSource(BioFuelGenerator source)
     {
         if (!generator.Contains(source)) { generator.Add(source); RecalculateGrid(); }
@@ -28,7 +43,7 @@ public class PowerManager : MonoBehaviour
         if (pylons.Contains(source)) { pylons.Remove(source); RecalculateGrid(); }
     }
 
-    // --- Àü·Â¸Á °è»ê ---
+    // --- ï¿½ï¿½ï¿½Â¸ï¿½ ï¿½ï¿½ï¿½ ---
     public void RecalculateGrid()
     {
         pylons.RemoveAll(p => p == null);
@@ -64,35 +79,35 @@ public class PowerManager : MonoBehaviour
         }
     }
 
-    // --- À¯Æ¿¸®Æ¼ ÇÔ¼ö ---
+    // --- ï¿½ï¿½Æ¿ï¿½ï¿½Æ¼ ï¿½Ô¼ï¿½ ---
     public bool IsIInPowerRange(Vector3 position)
     {
-        // ¹ßÀü±â Ã¼Å© (°Å²Ù·Î µ¹¸é¼­ Á×Àº ³ð »èÁ¦)
+        // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Ã¼Å© (ï¿½Å²Ù·ï¿½ ï¿½ï¿½ï¿½é¼­ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½)
         for (int i = generator.Count - 1; i >= 0; i--)
         {
-            // ¿¡·¯ ¿øÀÎ ÇØ°á: °Ç¹°ÀÌ ÆÄ±«µÇ¾úÀ¸¸é(null) ¸®½ºÆ®¿¡¼­ Áö¿ö¹ö¸²
+            // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Ø°ï¿½: ï¿½Ç¹ï¿½ï¿½ï¿½ ï¿½Ä±ï¿½ï¿½Ç¾ï¿½ï¿½ï¿½ï¿½ï¿½(null) ï¿½ï¿½ï¿½ï¿½Æ®ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
             if (generator[i] == null)
             {
                 generator.RemoveAt(i);
                 continue;
             }
 
-            // »ì¾ÆÀÖ´Â °Ç¹°¸¸ °Å¸® Ã¼Å©
+            // ï¿½ï¿½ï¿½ï¿½Ö´ï¿½ ï¿½Ç¹ï¿½ï¿½ï¿½ ï¿½Å¸ï¿½ Ã¼Å©
             if (Vector3.Distance(position, generator[i].GetPosition()) <= generator[i].GetRadius())
                 return true;
         }
 
-        // 2. Àüº¿´ë Ã¼Å© (°Å²Ù·Î µ¹¸é¼­ Á×Àº ³ð »èÁ¦)
+        // 2. ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Ã¼Å© (ï¿½Å²Ù·ï¿½ ï¿½ï¿½ï¿½é¼­ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½)
         for (int i = pylons.Count - 1; i >= 0; i--)
         {
-            // ¿¡·¯ ¿øÀÎ ÇØ°á: Àüº¿´ë°¡ ÆÄ±«µÇ¾úÀ¸¸é(null) ¸®½ºÆ®¿¡¼­ Áö¿ö¹ö¸²
+            // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Ø°ï¿½: ï¿½ï¿½ï¿½ï¿½ï¿½ë°¡ ï¿½Ä±ï¿½ï¿½Ç¾ï¿½ï¿½ï¿½ï¿½ï¿½(null) ï¿½ï¿½ï¿½ï¿½Æ®ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
             if (pylons[i] == null)
             {
                 pylons.RemoveAt(i);
                 continue;
             }
 
-            // »ì¾ÆÀÖ°í + ¿¬°áµÈ Àüº¿´ë¸¸ °Å¸® Ã¼Å©
+            // ï¿½ï¿½ï¿½ï¿½Ö°ï¿½ + ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ë¸¸ ï¿½Å¸ï¿½ Ã¼Å©
             if (pylons[i].IsLinked && Vector3.Distance(position, pylons[i].transform.position) <= pylons[i].supplyRadius)
                 return true;
         }
