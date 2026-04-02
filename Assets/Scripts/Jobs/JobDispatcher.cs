@@ -33,7 +33,8 @@ public class JobDispatcher : MonoBehaviour
             .ToList();
     }
 
-    private List<Job> jobList = new(); // Å¥´Â ¾ÕµÚ¸¸ °ü¸®ÇØ¼­ ÇÑ°è°¡ ÀÖÀ½
+    private bool wasRaidActive;
+    private List<Job> jobList = new(); // Å¥ï¿½ï¿½ ï¿½ÕµÚ¸ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ø¼ï¿½ ï¿½Ñ°è°¡ ï¿½ï¿½ï¿½ï¿½
     private HashSet<RobotAgent> robots = new(); 
 
     public static void Enqueue(Job job)
@@ -56,6 +57,36 @@ public class JobDispatcher : MonoBehaviour
     public static void Register(RobotAgent robotAgent) { Instance.robots.Add(robotAgent); }
     public static void UnRegister(RobotAgent robotAgent) { Instance.robots.Remove(robotAgent); }
     public static void NotifyIdle(RobotAgent robotAgent) { Instance.TryAssignJobs(); }
+
+    private void Update()
+    {
+        bool raidActive = EnemyAgent.All.Count > 0;
+        if (wasRaidActive && !raidActive)
+        {
+            Debug.Log("ë ˆì´ë“œ ì¢…ë£Œ ê°ì§€ â†’ ìˆ˜ë¦¬ ì‘ì—… ìƒì„±");
+            GenerateRepairJobs();
+        }
+        wasRaidActive = raidActive;
+    }
+
+    private void GenerateRepairJobs()
+    {
+        var things = FindObjectsByType<Thing>(FindObjectsSortMode.None);
+        foreach (var t in things)
+        {
+            if (t.stage == BuildStage.BulePrint)
+            {
+                var cell = Vector3Int.RoundToInt(t.transform.position);
+                Enqueue(new Job
+                {
+                    type = CommandType.Repair,
+                    cell = cell,
+                    targetThing = t,
+                    repairMinutes = 8
+                });
+            }
+        }
+    }
 
     private void TryAssignJobs()
     {
@@ -98,7 +129,9 @@ public class JobDispatcher : MonoBehaviour
         int bestDis = int.MaxValue;
 
         foreach (var robot in robots)
-        {           
+        {
+            if (!robot.CanDoJob(job.type)) continue;
+
             Vector3 robotP = robot.transform.position;
             int dis = Mathf.Abs((Mathf.RoundToInt(robotP.x) - job.cell.x) +
                 (Mathf.RoundToInt(robotP.y) - job.cell.y));

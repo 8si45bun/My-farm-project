@@ -18,6 +18,7 @@ public class ClickManager : MonoBehaviour
             var thing = col.GetComponentInParent<Thing>();
             var craft = col.GetComponentInParent<CraftingStation>();
             var generator = col.GetComponentInParent<BioFuelGenerator>();
+            var robotAgent = col.GetComponentInParent<RobotAgent>();
 
             // ThingStatus
             var status = ThingStatus.Instance;
@@ -27,7 +28,7 @@ public class ClickManager : MonoBehaviour
                 else status.Hide();
             }
 
-            // CreaterPanel (Á¦ÀÛ´ë Å¬¸¯ÀÏ ¶§¸¸)
+            // CreaterPanel (ï¿½ï¿½ï¿½Û´ï¿½ Å¬ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½)
             var createrPanel = BasicCreaterPanel.Instance;
             if (createrPanel != null)
             {
@@ -35,12 +36,20 @@ public class ClickManager : MonoBehaviour
                 else createrPanel.Hide();
             }
 
-            // BioFuelGeneratorPanel (¹ßÀü±â Å¬¸¯ÀÏ ¶§¸¸)
+            // BioFuelGeneratorPanel
             var genPanel = BioFuelGeneratorPanel.Instance;
             if (genPanel != null)
             {
                 if (generator != null) genPanel.Show(generator);
                 else genPanel.Hide();
+            }
+
+            // MobileUIController (ë¡œë´‡ í´ë¦­ ì‹œ ì‘ì—… ìš°ì„ ìˆœìœ„ íŒ¨ë„)
+            var mobileUI = MobileUIController.Instance;
+            if (mobileUI != null)
+            {
+                if (robotAgent != null) mobileUI.SelectRobot(robotAgent);
+                else mobileUI.Deselect();
             }
         }
     }

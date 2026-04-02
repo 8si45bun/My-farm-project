@@ -30,6 +30,18 @@ public class RobotAgent : MonoBehaviour
     public GameObject woodPrefab;
     public GameObject steelPrefab;
 
+    [Header("작업 우선순위")]
+    public bool canMine = true;
+    public bool canHaul = true;
+    public bool canBuild = true;
+    public bool canRepair = true;
+
+    [Header("대피")]
+    public Transform safeZone;
+    public float enemyDetectRadius = 8f;
+    private Job fleeingSavedJob;
+    private Action<Job, bool> fleeingSavedCallback;
+
     private RobotProgress progress;
     private RobotManager robot;
     private Job currentJob;
@@ -52,6 +64,7 @@ public class RobotAgent : MonoBehaviour
     private void Update()
     {
         HandleBattery();
+        HandleEnemyDetection();
     }
 
     private void OnEnable() { JobDispatcher.Register(this); }
@@ -59,7 +72,20 @@ public class RobotAgent : MonoBehaviour
 
     public bool IsIdle()
     {
+        if (currentState == RobotState.Fleeing) return false;
         return (currentJob == null && !robot.IsBusy);
+    }
+
+    public bool CanDoJob(CommandType type)
+    {
+        switch (type)
+        {
+            case CommandType.Mine: return canMine;
+            case CommandType.Haul: return canHaul;
+            case CommandType.Build: return canBuild;
+            case CommandType.Repair: return canRepair;
+            default: return true;
+        }
     }
 
     void RegisterGridCharge()
@@ -185,6 +211,9 @@ public class RobotAgent : MonoBehaviour
                 break;
             case CommandType.Deconstruct:
                 StartCoroutine(DeconstructRoutine(job));
+                break;
+            case CommandType.Repair:
+                StartCoroutine(RepairRoutine(job));
                 break;
             default:
                 currentJob = null;
@@ -476,11 +505,35 @@ public class RobotAgent : MonoBehaviour
 
     private void HandleTaskCompleted()
     {
+        // Fleeing 상태에서 도착 후 처리
+        if (currentState == RobotState.Fleeing)
+        {
+            if (EnemyAgent.All.Count == 0)
+            {
+                currentState = RobotState.Idle;
+                // 저장된 작업이 있으면 재개
+                if (fleeingSavedJob != null)
+                {
+                    var job = fleeingSavedJob;
+                    var cb = fleeingSavedCallback;
+                    fleeingSavedJob = null;
+                    fleeingSavedCallback = null;
+                    AcceptJob(job, cb);
+                }
+                else
+                {
+                    StartCoroutine(NotifyIdleNextFrame());
+                }
+            }
+            return;
+        }
+
         if (currentJob == null) return;
         if (currentJob.type == CommandType.Haul ||
             currentJob.type == CommandType.Build ||
             currentJob.type == CommandType.Craft ||
-            currentJob.type == CommandType.Mine) return;
+            currentJob.type == CommandType.Mine ||
+            currentJob.type == CommandType.Repair) return;
         Finish(true);
     }
 
@@ -488,9 +541,77 @@ public class RobotAgent : MonoBehaviour
     {
         var finished = currentJob;
         currentJob = null;
+        currentState = RobotState.Idle;
         onComplete?.Invoke(finished, success);
 
-        StartCoroutine(NotifyIdleNextFrame());      
+        StartCoroutine(NotifyIdleNextFrame());
     }
 
+    // --- 수리 루틴 ---
+    private IEnumerator RepairRoutine(Job job)
+    {
+        currentState = RobotState.Working;
+        var targetCell = job.cell;
+
+        robot.MoveToAdjacent(targetCell);
+        while (robot.IsBusy) yield return null;
+
+        int minutes = Mathf.Max(1, job.repairMinutes);
+        progress.PlayGameMinutes(minutes);
+        yield return TimeManager.WaitGameMinutes(minutes);
+
+        // 건물 수리 또는 벽 수리
+        if (job.targetThing != null)
+        {
+            BuildManager.Instance.RepairBuilding(job.targetThing);
+        }
+        else
+        {
+            BuildManager.Instance.RepairWall(job.cell);
+        }
+
+        progress.StopHide();
+        yield return null;
+        Finish(true);
+    }
+
+    // --- 적 감지 및 대피 ---
+    private void HandleEnemyDetection()
+    {
+        if (currentState == RobotState.Fleeing) return;
+        if (currentState == RobotState.Emergency) return;
+        if (currentState == RobotState.Charging) return;
+        if (safeZone == null) return;
+
+        // 주변에 적이 있는지 확인
+        bool enemyNearby = false;
+        foreach (var enemy in EnemyAgent.All)
+        {
+            if (enemy == null) continue;
+            if (enemy.currentState == EnemyState.Dead) continue;
+
+            float d = Vector2.Distance(transform.position, enemy.transform.position);
+            if (d <= enemyDetectRadius)
+            {
+                enemyNearby = true;
+                break;
+            }
+        }
+
+        if (!enemyNearby) return;
+
+        // 현재 작업 저장
+        if (currentJob != null)
+        {
+            fleeingSavedJob = currentJob;
+            fleeingSavedCallback = onComplete;
+            currentJob = null;
+            onComplete = null;
+        }
+
+        // 대피
+        currentState = RobotState.Fleeing;
+        StopAllCoroutines();
+        robot.MoveTo(Vector3Int.RoundToInt(safeZone.position));
+    }
 }

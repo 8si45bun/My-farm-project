@@ -1,21 +1,23 @@
-using System.Collections.Generic; 
+using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
+using UnityEngine.Tilemaps;
 
-// 1. °Ç¹° Á¤º¸¸¦ ´ãÀ» µ¥ÀÌÅÍ Å¬·¡½º (ÀÎ½ºÆåÅÍ¿¡¼­ º¸ÀÓ)
+// 1. ï¿½Ç¹ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Å¬ï¿½ï¿½ï¿½ï¿½ (ï¿½Î½ï¿½ï¿½ï¿½ï¿½Í¿ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½)
 [System.Serializable]
 public class BuildingData
 {
-    public string buildingName;  // °Ç¹° ÀÌ¸§
-    public GameObject prefab;    // ÇÁ¸®ÆÕ
-    //public Sprite icon;          // UI ¾ÆÀÌÄÜ
+    public string buildingName;  // ï¿½Ç¹ï¿½ ï¿½Ì¸ï¿½
+    public GameObject prefab;    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+    //public Sprite icon;          // UI ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
     [Header("Costs")]
-    public int woodCost = 0;     
+    public int woodCost = 0;
     public int firebloomCost = 0;
+    public int steelCost = 0;
 
     [Header("Settings")]
-    public int buildMinutes = 10; // °Ç¼³ ¼Ò¿ä ½Ã°£
+    public int buildMinutes = 10; // ï¿½Ç¼ï¿½ ï¿½Ò¿ï¿½ ï¿½Ã°ï¿½
 }
 
 public class BuildManager : MonoBehaviour 
@@ -26,10 +28,14 @@ public class BuildManager : MonoBehaviour
     public StorageBox storageBox;
     public TextManager textManager;
 
+    [Header("Wall Repair")]
+    public Tilemap wallTilemap;
+    public TileBase wallTile;
+
     [Header("Buildings List")]
     public List<BuildingData> buildingList = new List<BuildingData>();
 
-    // ÇöÀç ¼±ÅÃµÈ °Ç¹° µ¥ÀÌÅÍ (¾øÀ¸¸é null)
+    // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ãµï¿½ ï¿½Ç¹ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ (ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ null)
     private BuildingData currentBuilding;
 
     [HideInInspector]
@@ -44,13 +50,13 @@ public class BuildManager : MonoBehaviour
 
     private void Update()
     {
-        // ¸¶¿ì½º À§Ä¡ °è»ê
+        // ï¿½ï¿½ï¿½ì½º ï¿½ï¿½Ä¡ ï¿½ï¿½ï¿½
         mouseGridPos = Vector2Int.CeilToInt((Vector2)Camera.main.ScreenToWorldPoint(Input.mousePosition));
 
-        // 1. Áş´Â ÁßÀÌ ¾Æ´Ï¸é ¸®ÅÏ (currentBuildingÀÌ nullÀÌ¸é ¾È Áş´Â »óÅÂ)
+        // 1. ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Æ´Ï¸ï¿½ ï¿½ï¿½ï¿½ï¿½ (currentBuildingï¿½ï¿½ nullï¿½Ì¸ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½)
         if (currentBuilding == null) return;
 
-        // 2. ÇÁ¸®ºä »ı¼º (¾øÀ» ¶§¸¸)
+        // 2. ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ (ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½)
         if (previewInstance == null)
         {
             previewInstance = Instantiate(currentBuilding.prefab);
@@ -58,33 +64,33 @@ public class BuildManager : MonoBehaviour
             var thing = previewInstance.GetComponent<Thing>();
             if (thing == null) thing = previewInstance.AddComponent<Thing>();
 
-            // µ¥ÀÌÅÍ¿¡ ÀÖ´Â ÀÌ¸§ »ç¿ë
+            // ï¿½ï¿½ï¿½ï¿½ï¿½Í¿ï¿½ ï¿½Ö´ï¿½ ï¿½Ì¸ï¿½ ï¿½ï¿½ï¿½
             thing.Init(currentBuilding.buildingName, BuildStage.BulePrint);
         }
 
-        // 3. ÇÁ¸®ºä À§Ä¡ °»½Å
+        // 3. ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ä¡ ï¿½ï¿½ï¿½ï¿½
         if (mouseGridPos != lastGrid && previewInstance != null)
         {
             previewInstance.transform.position = new Vector3Int(mouseGridPos.x, mouseGridPos.y, 0);
             lastGrid = mouseGridPos;
         }
 
-        // 4. Å¬¸¯ÇØ¼­ °Ç¼³ (ÁÂÅ¬¸¯)
+        // 4. Å¬ï¿½ï¿½ï¿½Ø¼ï¿½ ï¿½Ç¼ï¿½ (ï¿½ï¿½Å¬ï¿½ï¿½)
         if (Input.GetMouseButtonDown(0))
         {
-            // Àç·á È®ÀÎ (ÀÎÀÚ·Î ÇöÀç °Ç¹° µ¥ÀÌÅÍ¸¦ ³Ñ±è)
+            // ï¿½ï¿½ï¿½ È®ï¿½ï¿½ (ï¿½ï¿½ï¿½Ú·ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Ç¹ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Í¸ï¿½ ï¿½Ñ±ï¿½)
             if (CanBuild(currentBuilding, out string msg))
             {
                 PayBuild(currentBuilding);
 
-                // Thing ¼³Á¤
-                var thing = previewInstance.GetComponentInChildren<Thing>(); // È¤Àº GetComponent
+                // Thing ï¿½ï¿½ï¿½ï¿½
+                var thing = previewInstance.GetComponentInChildren<Thing>(); // È¤ï¿½ï¿½ GetComponent
                 if (thing == null) thing = previewInstance.GetComponent<Thing>();
-                thing.Setstage(BuildStage.BulePrint); // Ã¶ÀÚ ÁÖÀÇ (BluePrint)
+                thing.Setstage(BuildStage.BulePrint); // Ã¶ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ (BluePrint)
 
                 Vector3Int cell = Vector3Int.RoundToInt(previewInstance.transform.position);
 
-                // Job µî·Ï
+                // Job ï¿½ï¿½ï¿½
                 JobDispatcher.Enqueue(new Job
                 {
                     type = CommandType.Build,
@@ -93,86 +99,93 @@ public class BuildManager : MonoBehaviour
                     buildMinutes = currentBuilding.buildMinutes
                 });
 
-                // ÇÁ¸®ºä(previewInstance)´Â ÀÌÁ¦ "ÁøÂ¥ °Ç¹°"ÀÌ µÇ¾úÀ¸´Ï ÆÄ±«ÇÏÁö ¸»°í
-                // ¸Å´ÏÀúÀÇ ¼Õ¿¡¼­¸¸ ³õ¾ÆÁİ´Ï´Ù.
+                // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(previewInstance)ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ "ï¿½ï¿½Â¥ ï¿½Ç¹ï¿½"ï¿½ï¿½ ï¿½Ç¾ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ä±ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
+                // ï¿½Å´ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Õ¿ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½İ´Ï´ï¿½.
                 previewInstance = null;
-                currentBuilding = null; // ¼±ÅÃ ÇØÁ¦
+                currentBuilding = null; // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 
-                // ¸¸¾à ¿¬¼Ó °Ç¼³À» ÇÏ°í ½ÍÀ¸¸é ÀÌ ÁÙµµ Áö¿ì¸é µË´Ï´Ù.
-                // ¡ã¡ã¡ã
+                // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Ç¼ï¿½ï¿½ï¿½ ï¿½Ï°ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½Ùµï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ë´Ï´ï¿½.
+                // ï¿½ï¿½ï¿½ï¿½
             }
             else
             {
                 textManager.showText(msg);
             }
         }
-        // 5. Ãë¼Ò (¿ìÅ¬¸¯)
+        // 5. ï¿½ï¿½ï¿½ (ï¿½ï¿½Å¬ï¿½ï¿½)
         else if (Input.GetMouseButtonDown(1))
         {
-            CancelBuildMode(); // ¿ìÅ¬¸¯Àº Ãë¼Ò´Ï±î ÆÄ±«(Destroy)ÇÏ´Â °Ô ¸ÂÀ½
+            CancelBuildMode(); // ï¿½ï¿½Å¬ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ò´Ï±ï¿½ ï¿½Ä±ï¿½(Destroy)ï¿½Ï´ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
         }
     }
 
-    // °Ç¼³ ¸ğµå Ãë¼Ò ¹× ÃÊ±âÈ­
+    // ï¿½Ç¼ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½Ê±ï¿½È­
     private void CancelBuildMode()
     {
         if (previewInstance != null) Destroy(previewInstance);
         previewInstance = null;
-        currentBuilding = null; // ¼±ÅÃ ÇØÁ¦
+        currentBuilding = null; // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     }
 
     public void SelectBuilding(int index)
     {
         if (index >= 0 && index < buildingList.Count)
         {
-            // ±âÁ¸ ÇÁ¸®ºä°¡ ÀÖ´Ù¸é »èÁ¦
+            // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ä°¡ ï¿½Ö´Ù¸ï¿½ ï¿½ï¿½ï¿½ï¿½
             if (previewInstance != null) Destroy(previewInstance);
 
-            // ¸®½ºÆ®¿¡¼­ ÇØ´ç ¹øÈ£ÀÇ °Ç¹° Á¤º¸¸¦ °¡Á®¿È
+            // ï¿½ï¿½ï¿½ï¿½Æ®ï¿½ï¿½ï¿½ï¿½ ï¿½Ø´ï¿½ ï¿½ï¿½È£ï¿½ï¿½ ï¿½Ç¹ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
             currentBuilding = buildingList[index];
-            Debug.Log($"{currentBuilding.buildingName} ¼±ÅÃµÊ");
+            Debug.Log($"{currentBuilding.buildingName} ï¿½ï¿½ï¿½Ãµï¿½");
         }
         else
         {
-            Debug.LogError("Àß¸øµÈ °Ç¹° ÀÎµ¦½ºÀÔ´Ï´Ù.");
+            Debug.LogError("ï¿½ß¸ï¿½ï¿½ï¿½ ï¿½Ç¹ï¿½ ï¿½Îµï¿½ï¿½ï¿½ï¿½Ô´Ï´ï¿½.");
         }
     }
 
-    // ºñ¿ë È®ÀÎ ·ÎÁ÷ (µ¥ÀÌÅÍ Å¬·¡½º ±â¹İÀ¸·Î º¯°æ)
+    // ï¿½ï¿½ï¿½ È®ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ (ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Å¬ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½)
     private bool CanBuild(BuildingData data, out string lackMessage)
     {
         int haveWood = storageBox.GetCount(ItemType.Wood);
         int haveFirebloom = storageBox.GetCount(ItemType.Firebloom);
+        int haveSteel = storageBox.GetCount(ItemType.Steel);
 
-        // µ¥ÀÌÅÍ¿¡ ÀûÈù ºñ¿ë°ú ºñ±³
         int lackWood = Mathf.Max(0, data.woodCost - haveWood);
         int lackFirebloom = Mathf.Max(0, data.firebloomCost - haveFirebloom);
+        int lackSteel = Mathf.Max(0, data.steelCost - haveSteel);
 
-        if (lackWood == 0 && lackFirebloom == 0)
+        if (lackWood == 0 && lackFirebloom == 0 && lackSteel == 0)
         {
             lackMessage = "";
             return true;
         }
 
-        var sb = new StringBuilder("Àç·á°¡ ºÎÁ·ÇÕ´Ï´Ù: ");
+        var sb = new StringBuilder("ï¿½ï¿½á°¡ ï¿½ï¿½ï¿½ï¿½ï¿½Õ´Ï´ï¿½: ");
         bool first = true;
 
         if (lackWood > 0)
         {
-            sb.Append($"Wood {lackWood}°³");
+            sb.Append($"Wood {lackWood}ï¿½ï¿½");
             first = false;
         }
         if (lackFirebloom > 0)
         {
             if (!first) sb.Append(", ");
-            sb.Append($"Firebloom {lackFirebloom}°³");
+            sb.Append($"Firebloom {lackFirebloom}ê°œ");
+            first = false;
+        }
+        if (lackSteel > 0)
+        {
+            if (!first) sb.Append(", ");
+            sb.Append($"Steel {lackSteel}ê°œ");
         }
 
         lackMessage = sb.ToString();
         return false;
     }
 
-    // ºñ¿ë ÁöºÒ ·ÎÁ÷
+    // ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     private void PayBuild(BuildingData data)
     {
         if (data.woodCost > 0)
@@ -180,5 +193,35 @@ public class BuildManager : MonoBehaviour
 
         if (data.firebloomCost > 0)
             storageBox.TakeItem(ItemType.Firebloom, data.firebloomCost);
+
+        if (data.steelCost > 0)
+            storageBox.TakeItem(ItemType.Steel, data.steelCost);
+    }
+
+    // ê±´ë¬¼ ìˆ˜ë¦¬ (BluePrint â†’ Finished)
+    public void RepairBuilding(Thing thing)
+    {
+        if (thing == null) return;
+        thing.Setstage(BuildStage.Finished);
+    }
+
+    // ë²½ ìˆ˜ë¦¬ (íƒ€ì¼ë§µì— ë²½ íƒ€ì¼ ë³µì›)
+    public void RepairWall(Vector3Int cell)
+    {
+        if (wallTilemap == null || wallTile == null) return;
+        wallTilemap.SetTile(cell, wallTile);
+    }
+
+    // ì™„ì„±ëœ ê±´ë¬¼ ëª©ë¡ ë°˜í™˜
+    public List<Thing> GetAllFinishedBuildings()
+    {
+        var result = new List<Thing>();
+        var things = FindObjectsByType<Thing>(FindObjectsSortMode.None);
+        foreach (var t in things)
+        {
+            if (t.stage == BuildStage.Finished)
+                result.Add(t);
+        }
+        return result;
     }
 }

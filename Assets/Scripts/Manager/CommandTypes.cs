@@ -1,12 +1,14 @@
 using UnityEngine;
 
 public enum CommandType {Default, Dig, Cultivate, Plant,
-    Harvest, Move, Haul, Build, Craft, Mine , Deconstruct} // ¸í·É ¸ðÀ½
+    Harvest, Move, Haul, Build, Craft, Mine , Deconstruct, Repair} // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 
 public enum JobStatus { Queued, Reserved, InProgress, 
-    Done, Failed, Canceled } // ¸í·É¿¡ ´ëÇÑ »óÈ²
+    Done, Failed, Canceled } // ï¿½ï¿½ï¿½É¿ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½È²
 
-public enum RobotState { Idle, Working, Moving, Charging, Emergency }
+public enum RobotState { Idle, Working, Moving, Charging, Emergency, Fleeing }
+
+public enum EnemyState { Idle, Moving, Attacking, Dead }
 
 public enum ItemType { Corn, Steel ,
-    StarMoss, Firebloom, Wood, Stone , Pile} // ¾ÆÀÌÅÛ ¸ðÀ½
+    StarMoss, Firebloom, Wood, Stone , Pile} // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½

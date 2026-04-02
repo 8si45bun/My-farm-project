@@ -30,4 +30,7 @@ public class Job
 
     //Demolition
     public int DemolitionMinute = 5;
+
+    //Repair
+    public int repairMinutes = 8;
 }

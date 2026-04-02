@@ -6,11 +6,11 @@ public class BioFuelGeneratorPanel : MonoBehaviour
     public static BioFuelGeneratorPanel Instance;
 
     [Header("UI")]
-    public GameObject panelRoot;          // ÆĞ³Î ÀüÃ¼
+    public GameObject panelRoot;          // ï¿½Ğ³ï¿½ ï¿½ï¿½Ã¼
     public TextMeshProUGUI countText;    
     public TextMeshProUGUI statusText;    
 
-    BioFuelGenerator cur;                 // ÇöÀç ¼±ÅÃµÈ ¹ßÀü±â
+    BioFuelGenerator cur;                 // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ãµï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
     private void Awake()
     {
@@ -43,6 +43,10 @@ public class BioFuelGeneratorPanel : MonoBehaviour
         if (panelRoot != null)
             panelRoot.SetActive(true);
 
+        // ì „ë ¥ ë²”ìœ„ ì‹œê°í™”
+        if (PowerRangeVisualizer.Instance != null)
+            PowerRangeVisualizer.Instance.ShowNetwork(generator);
+
         Refresh();
     }
 
@@ -56,6 +60,10 @@ public class BioFuelGeneratorPanel : MonoBehaviour
 
         if (panelRoot != null)
             panelRoot.SetActive(false);
+
+        // ì „ë ¥ ë²”ìœ„ ì‹œê°í™” ìˆ¨ê¸°ê¸°
+        if (PowerRangeVisualizer.Instance != null)
+            PowerRangeVisualizer.Instance.HideAll();
     }
 
     public void Refresh()
@@ -69,7 +77,7 @@ public class BioFuelGeneratorPanel : MonoBehaviour
             statusText.text = $"{cur.StoredFuel} / {cur.DesiredInput}";
     }
 
-    // ----- ¹öÆ°¿ë ÇÔ¼ö -----
+    // ----- ï¿½ï¿½Æ°ï¿½ï¿½ ï¿½Ô¼ï¿½ -----
 
     public void OnPlusBtn()
     {
